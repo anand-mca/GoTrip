@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import '../utils/app_constants.dart';
 import '../models/trip_model.dart';
+import '../models/destination_model.dart';
 import '../widgets/custom_button.dart';
 
 class TripDetailScreen extends StatefulWidget {
-  final Trip trip;
+  final dynamic trip; // Can be Trip or Destination
 
   const TripDetailScreen({Key? key, required this.trip}) : super(key: key);
 
@@ -15,6 +16,54 @@ class TripDetailScreen extends StatefulWidget {
 class _TripDetailScreenState extends State<TripDetailScreen> {
   bool _isSaved = false;
   int _selectedTabIndex = 0;
+
+  String get _title => widget.trip is Destination 
+      ? (widget.trip as Destination).title 
+      : (widget.trip as Trip).title;
+  
+  String get _image => widget.trip is Destination 
+      ? (widget.trip as Destination).image 
+      : (widget.trip as Trip).image;
+  
+  String get _location => widget.trip is Destination 
+      ? (widget.trip as Destination).location 
+      : (widget.trip as Trip).location;
+  
+  double get _rating => widget.trip is Destination 
+      ? (widget.trip as Destination).rating 
+      : (widget.trip as Trip).rating;
+  
+  int get _reviews => widget.trip is Destination 
+      ? (widget.trip as Destination).reviews 
+      : (widget.trip as Trip).reviews;
+  
+  int get _duration => widget.trip is Destination 
+      ? (widget.trip as Destination).duration 
+      : (widget.trip as Trip).duration;
+  
+  int get _groupSize => widget.trip is Destination 
+      ? (widget.trip as Destination).groupSize 
+      : (widget.trip as Trip).groupSize;
+  
+  String get _difficulty => widget.trip is Destination 
+      ? (widget.trip as Destination).difficulty 
+      : (widget.trip as Trip).difficulty;
+  
+  String get _description => widget.trip is Destination 
+      ? (widget.trip as Destination).description 
+      : (widget.trip as Trip).description;
+  
+  List<String> get _highlights => widget.trip is Destination 
+      ? (widget.trip as Destination).highlights 
+      : (widget.trip as Trip).highlights;
+  
+  List<String> get _amenities => widget.trip is Destination 
+      ? (widget.trip as Destination).amenities 
+      : (widget.trip as Trip).amenities;
+  
+  double get _price => widget.trip is Destination 
+      ? (widget.trip as Destination).price 
+      : (widget.trip as Trip).price;
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +80,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                 fit: StackFit.expand,
                 children: [
                   Image.network(
-                    widget.trip.image,
+                    _image,
                     fit: BoxFit.cover,
                   ),
                   Container(
@@ -93,7 +142,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              widget.trip.title,
+                              _title,
                               style: Theme.of(context).textTheme.displayMedium,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
@@ -108,7 +157,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                                 ),
                                 const SizedBox(width: AppSpacing.xs),
                                 Text(
-                                  widget.trip.location,
+                                  _location,
                                   style: Theme.of(context).textTheme.bodyMedium,
                                 ),
                               ],
@@ -136,7 +185,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                                 ),
                                 const SizedBox(width: AppSpacing.xs),
                                 Text(
-                                  '${widget.trip.rating}',
+                                  '$_rating',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: AppColors.accentLight,
@@ -147,7 +196,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                           ),
                           const SizedBox(height: AppSpacing.xs),
                           Text(
-                            '${widget.trip.reviews} reviews',
+                            '$_reviews reviews',
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ],
@@ -159,9 +208,9 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _buildInfoCard('${widget.trip.duration} Days', Icons.calendar_today),
-                      _buildInfoCard('${widget.trip.groupSize} People', Icons.group),
-                      _buildInfoCard(widget.trip.difficulty, Icons.trending_up),
+                      _buildInfoCard('$_duration Days', Icons.calendar_today),
+                      _buildInfoCard('$_groupSize People', Icons.group),
+                      _buildInfoCard(_difficulty, Icons.trending_up),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.lg),
@@ -187,7 +236,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                     ),
                     const SizedBox(height: AppSpacing.md),
                     Text(
-                      widget.trip.description,
+                      _description,
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ] else if (_selectedTabIndex == 1) ...[
@@ -197,7 +246,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                     ),
                     const SizedBox(height: AppSpacing.md),
                     Column(
-                      children: widget.trip.highlights.map((highlight) {
+                      children: _highlights.map((highlight) {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: AppSpacing.md),
                           child: Row(
@@ -226,7 +275,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                     Wrap(
                       spacing: AppSpacing.md,
                       runSpacing: AppSpacing.md,
-                      children: widget.trip.amenities.map((amenity) {
+                      children: _amenities.map((amenity) {
                         return Chip(
                           label: Text(amenity),
                           backgroundColor: AppColors.surfaceAlt,
@@ -268,7 +317,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                       ),
                       const SizedBox(height: AppSpacing.xs),
                       Text(
-                        '\$${widget.trip.price}',
+                        '\$$_price',
                         style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                           color: AppColors.primary,
                         ),

@@ -47,10 +47,28 @@ class TripCard extends StatelessWidget {
                       topLeft: Radius.circular(AppRadius.lg),
                       topRight: Radius.circular(AppRadius.lg),
                     ),
-                    image: DecorationImage(
-                      image: NetworkImage(image),
-                      fit: BoxFit.cover,
-                    ),
+                    color: AppColors.surfaceAlt,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.location_on,
+                        size: 60,
+                        color: AppColors.primary,
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Text(
+                        location,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
                 ),
                 Positioned(

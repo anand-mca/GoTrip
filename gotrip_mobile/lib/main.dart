@@ -10,11 +10,11 @@ import 'screens/explore_screen.dart';
 import 'screens/bookings_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/trip_detail_screen.dart';
-import 'models/trip_model.dart';
 import 'config/supabase_config.dart';
 import 'services/supabase_service.dart';
 import 'providers/auth_provider.dart';
 import 'providers/trip_provider.dart';
+import 'providers/destination_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -53,6 +53,7 @@ class _GoTripAppState extends State<GoTripApp> {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => TripProvider()),
+        ChangeNotifierProvider(create: (_) => DestinationProvider()),
       ],
       child: MaterialApp(
         title: 'GoTrip',
@@ -71,9 +72,9 @@ class _GoTripAppState extends State<GoTripApp> {
         },
         onGenerateRoute: (settings) {
           if (settings.name == '/trip-detail') {
-            final trip = settings.arguments as Trip;
+            final argument = settings.arguments;
             return MaterialPageRoute(
-              builder: (context) => TripDetailScreen(trip: trip),
+              builder: (context) => TripDetailScreen(trip: argument),
             );
           }
           return null;

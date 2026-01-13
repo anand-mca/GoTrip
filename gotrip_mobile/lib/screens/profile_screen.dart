@@ -28,22 +28,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadUserProfile() async {
     try {
-      final authProvider = context.read<AuthProvider>();
       final supabaseService = SupabaseService();
-      final user = supabaseService.getCurrentUser();
+      final authUser = supabaseService.getCurrentUser();
       
-      if (user != null) {
-        final profile = await supabaseService.getUserProfile(user.id);
+      print('DEBUG: Current user from auth: $authUser');
+      print('DEBUG: User ID: ${authUser?.id}');
+      
+      if (authUser != null) {
+        final profile = await supabaseService.getUserProfile(authUser.id);
+        
+        print('DEBUG: Profile loaded: $profile');
+        
+        if (profile != null) {
+          if (mounted) {
+            setState(() {
+              _userProfile = profile;
+              _isLoading = false;
+            });
+          }
+        } else {
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+            });
+          }
+          print('DEBUG: Profile is null for user ${authUser.id}');
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+        print('DEBUG: No authenticated user found');
+      }
+    } catch (e) {
+      if (mounted) {
         setState(() {
-          _userProfile = profile;
           _isLoading = false;
         });
       }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      print('Error loading profile: $e');
+      print('ERROR loading profile: $e');
     }
   }
 
@@ -386,6 +411,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   final supabaseService = SupabaseService();
                   final user = supabaseService.getCurrentUser();
                   
+                  print('DEBUG: Updating profile for user: ${user?.id}');
+                  
                   if (user != null) {
                     await supabaseService.updateUserProfile(user.id, {
                       'name': nameController.text,
@@ -394,17 +421,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       'updated_at': DateTime.now().toIso8601String(),
                     });
                     
-                    Navigator.pop(context);
-                    _loadUserProfile();
+                    print('DEBUG: Profile updated successfully');
                     
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Profile updated successfully!')),
-                    );
+                    if (mounted) {
+                      Navigator.pop(context);
+                      await _loadUserProfile();
+                      
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Profile updated successfully!')),
+                      );
+                    }
+                  } else {
+                    print('DEBUG: No user found for update');
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Error: User not found')),
+                      );
+                    }
                   }
                 } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: $e')),
-                  );
+                  print('DEBUG: Error updating profile: $e');
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: $e')),
+                    );
+                  }
                 }
               },
               child: const Text('Save'),
