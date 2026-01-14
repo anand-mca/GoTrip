@@ -9,6 +9,7 @@ class Trip {
   final double price;
   final int duration;
   final String difficulty;
+  final String category;
   final List<String> highlights;
   final List<String> amenities;
   final int groupSize;
@@ -26,6 +27,7 @@ class Trip {
     required this.price,
     required this.duration,
     required this.difficulty,
+    required this.category,
     required this.highlights,
     required this.amenities,
     required this.groupSize,
@@ -35,7 +37,7 @@ class Trip {
 
   factory Trip.fromJson(Map<String, dynamic> json) {
     return Trip(
-      id: json['id'] ?? '',
+      id: json['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
       title: json['title'] ?? '',
       description: json['description'] ?? '',
       image: json['image'] ?? '',
@@ -43,13 +45,14 @@ class Trip {
       rating: (json['rating'] ?? 0.0).toDouble(),
       reviews: json['reviews'] ?? 0,
       price: (json['price'] ?? 0.0).toDouble(),
-      duration: json['duration'] ?? 0,
-      difficulty: json['difficulty'] ?? 'Easy',
+      duration: json['duration'] is int ? json['duration'] : 0,
+      difficulty: (json['difficulty'] ?? 'easy').toString().toLowerCase(),
+      category: json['category'] ?? 'Other',
       highlights: List<String>.from(json['highlights'] ?? []),
       amenities: List<String>.from(json['amenities'] ?? []),
-      groupSize: json['group_size'] ?? 0,
-      createdAt: DateTime.parse(json['created_at'] ?? DateTime.now().toIso8601String()),
-      createdBy: json['created_by'] ?? '',
+      groupSize: json['groupSize'] ?? 0,
+      createdAt: DateTime.now(),
+      createdBy: 'admin',
     );
   }
 
@@ -64,6 +67,7 @@ class Trip {
     'price': price,
     'duration': duration,
     'difficulty': difficulty,
+    'category': category,
     'highlights': highlights,
     'amenities': amenities,
     'group_size': groupSize,

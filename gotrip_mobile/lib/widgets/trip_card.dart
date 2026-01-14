@@ -36,6 +36,7 @@ class TripCard extends StatelessWidget {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Stack(
               children: [
@@ -49,26 +50,31 @@ class TripCard extends StatelessWidget {
                     ),
                     color: AppColors.surfaceAlt,
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.location_on,
-                        size: 60,
-                        color: AppColors.primary,
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      Text(
-                        location,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.location_on,
+                          size: 50,
+                          color: AppColors.primary,
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                        const SizedBox(height: AppSpacing.md),
+                        Expanded(
+                          child: Text(
+                            location,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 Positioned(
@@ -102,6 +108,7 @@ class TripCard extends StatelessWidget {
               padding: const EdgeInsets.all(AppSpacing.md),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     title,
@@ -118,9 +125,13 @@ class TripCard extends StatelessWidget {
                         color: AppColors.textSecondary,
                       ),
                       const SizedBox(width: AppSpacing.xs),
-                      Text(
-                        location,
-                        style: Theme.of(context).textTheme.bodySmall,
+                      Expanded(
+                        child: Text(
+                          location,
+                          style: Theme.of(context).textTheme.bodySmall,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                   ),
@@ -130,6 +141,7 @@ class TripCard extends StatelessWidget {
                     children: [
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Row(
                             children: [
@@ -153,7 +165,7 @@ class TripCard extends StatelessWidget {
                         ],
                       ),
                       Text(
-                        '\$$price',
+                        '₹${price.toStringAsFixed(0)}',
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           color: AppColors.primary,
                           fontWeight: FontWeight.bold,
