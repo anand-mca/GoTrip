@@ -113,4 +113,19 @@ class DestinationProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  Future<void> addDestination(Destination destination) async {
+    try {
+      await _supabaseService.addDestination(destination);
+      _destinations.add(destination);
+      _filteredDestinations = _destinations;
+      notifyListeners();
+      print('✓ Destination added successfully: ${destination.title}');
+    } catch (e) {
+      _error = e.toString();
+      print('✗ Error adding destination: $e');
+      notifyListeners();
+      rethrow;
+    }
+  }
 }

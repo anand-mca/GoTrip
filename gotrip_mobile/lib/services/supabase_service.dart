@@ -506,5 +506,16 @@ class SupabaseService {
       rethrow;
     }
   }
-}
 
+  // Admin Methods - Add Destination
+  Future<void> addDestination(dynamic destination) async {
+    try {
+      final destinationJson = destination.toJson();
+      await client.from('destinations').insert(destinationJson);
+      print('✓ Destination added to database: ${destination.title}');
+    } catch (e) {
+      print('✗ Error adding destination: $e');
+      rethrow;
+    }
+  }
+}

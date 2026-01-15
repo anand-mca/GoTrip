@@ -106,44 +106,24 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ],
                         ),
-                        Container(
-                          padding: const EdgeInsets.all(AppSpacing.sm),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.person,
-                            color: Colors.white,
-                            size: 24,
-                          ),
+                        Row(
+                          children: [
+                            // Profile Button
+                            Container(
+                              padding: const EdgeInsets.all(AppSpacing.sm),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.person,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    // Search Bar
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(AppRadius.lg),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.shadow,
-                            blurRadius: 12,
-                          ),
-                        ],
-                      ),
-                      child: TextField(
-                        decoration: InputDecoration(
-                          hintText: 'Search destinations...',
-                          prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.md,
-                            vertical: AppSpacing.md,
-                          ),
-                        ),
-                      ),
                     ),
                   ],
                 ),
@@ -371,7 +351,7 @@ class _HomeScreenState extends State<HomeScreen> {
           });
           // Handle navigation
           if (index == 1) Navigator.pushNamed(context, '/explore');
-          if (index == 2) Navigator.pushNamed(context, '/bookings');
+          if (index == 2) Navigator.pushNamed(context, '/plan-trip');
           if (index == 3) Navigator.pushNamed(context, '/profile');
         },
         items: const [
@@ -384,8 +364,8 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'Explore',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.bookmark),
-            label: 'Bookings',
+            icon: Icon(Icons.map),
+            label: 'Plan Trip',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),

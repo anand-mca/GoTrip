@@ -10,6 +10,8 @@ import 'screens/explore_screen.dart';
 import 'screens/bookings_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/trip_detail_screen.dart';
+import 'screens/plan_trip_screen.dart';
+import 'screens/admin_dashboard_screen.dart';
 import 'config/supabase_config.dart';
 import 'services/supabase_service.dart';
 import 'providers/auth_provider.dart';
@@ -69,6 +71,8 @@ class _GoTripAppState extends State<GoTripApp> {
           '/explore': (context) => const ExploreScreen(),
           '/bookings': (context) => const BookingsScreen(),
           '/profile': (context) => const ProfileScreen(),
+          '/plan-trip': (context) => const PlanTripScreen(),
+          '/admin': (context) => const AdminDashboardScreen(),
         },
         onGenerateRoute: (settings) {
           if (settings.name == '/trip-detail') {

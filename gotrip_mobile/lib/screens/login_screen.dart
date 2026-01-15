@@ -26,11 +26,19 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _handleLogin() async {
     if (_formKey.currentState?.validate() ?? false) {
+      final email = _emailController.text.trim();
+      final password = _passwordController.text;
+
+      // Check for admin credentials
+      if (email == 'admin@gmail.com' && password == 'admin123') {
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/admin');
+        }
+        return;
+      }
+
       final authProvider = context.read<AuthProvider>();
-      final success = await authProvider.signIn(
-        _emailController.text.trim(),
-        _passwordController.text,
-      );
+      final success = await authProvider.signIn(email, password);
 
       if (mounted) {
         if (success) {

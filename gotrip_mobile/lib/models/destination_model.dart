@@ -94,7 +94,6 @@ class Destination {
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
       'title': title,
       'location': location,
       'description': description,
@@ -106,7 +105,6 @@ class Destination {
       'difficulty': difficulty,
       'highlights': highlights,
       'amenities': amenities,
-      'groupSize': groupSize,
       'category': category,
       'latitude': latitude,
       'longitude': longitude,
