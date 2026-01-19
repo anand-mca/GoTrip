@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../services/api_service.dart';
+import '../services/trip_planner_service.dart';
 
 class TripPlanningScreen extends StatefulWidget {
   const TripPlanningScreen({Key? key}) : super(key: key);
@@ -25,6 +25,7 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
     'Mumbai': {'lat': 19.0760, 'lng': 72.8777},
     'Delhi': {'lat': 28.6139, 'lng': 77.2090},
     'Bangalore': {'lat': 12.9716, 'lng': 77.5946},
+    'Bengaluru': {'lat': 12.9716, 'lng': 77.5946},  // Alternative spelling
     'Kolkata': {'lat': 22.5726, 'lng': 88.3639},
     'Chennai': {'lat': 13.0827, 'lng': 80.2707},
     'Hyderabad': {'lat': 17.3850, 'lng': 78.4867},
@@ -38,9 +39,11 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
     'Rishikesh': {'lat': 30.0869, 'lng': 78.2676},
     'Udaipur': {'lat': 24.5854, 'lng': 73.7125},
     'Kochi': {'lat': 9.9312, 'lng': 76.2673},
+    'Cochin': {'lat': 9.9312, 'lng': 76.2673},  // Alternative spelling
     'Agra': {'lat': 27.1767, 'lng': 78.0081},
     'Varanasi': {'lat': 25.3176, 'lng': 82.9739},
     'Pondicherry': {'lat': 11.9416, 'lng': 79.8083},
+    'Puducherry': {'lat': 11.9416, 'lng': 79.8083},  // Alternative spelling
     'Darjeeling': {'lat': 27.0360, 'lng': 88.2627},
   };
 
@@ -97,7 +100,7 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
         throw Exception('End date must be after start date');
       }
       
-      // Format dates to ISO format for API
+      // Format dates to ISO format
       final startDateISO = '${startDate}T00:00:00Z';
       final endDateISO = '${endDate}T23:59:59Z';
       
@@ -114,8 +117,9 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
         'lng': cityCoords['lng'],
       };
       
-      // Call optimized trip planning API
-      final response = await APIService.planOptimizedTrip(
+      // Call Supabase-based trip planning service (no external API needed!)
+      final tripPlannerService = TripPlannerService();
+      final response = await tripPlannerService.planTrip(
         startLocation: startLocation,
         preferences: selectedPreferences,
         budget: budget,
@@ -303,7 +307,7 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
                   ),
                   child: isLoading
                       ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Text('Plan Optimized Trip 🗺️', style: TextStyle(fontSize: 16)),
+                      : const Text('Plan My Trip 🗺️', style: TextStyle(fontSize: 16)),
                 ),
               ),
               const SizedBox(height: 20),
@@ -458,47 +462,98 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.purple),
                               ),
                               Text(
-                                day['date'],
+                              day['date'].toString().split('T')[0],
                                 style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                               ),
                             ],
                           ),
                           const SizedBox(height: 8),
-                          Text(
-                            '📍 ${day['destination']}',
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                          ),
-                          if (day['city'] != null) ...[
+                          // Display destinations for the day
+                          if (day['destinations'] != null && (day['destinations'] as List).isNotEmpty) ...[
+                            ...(day['destinations'] as List).map((dest) {
+                              // Destination is now a Map with full details
+                              final destMap = dest as Map<String, dynamic>;
+                              final destName = destMap['name'] ?? 'Unknown';
+                              final destCity = destMap['city'] ?? '';
+                              final rating = destMap['rating']?.toString() ?? 'N/A';
+                              final categories = destMap['categories'] as List?;
+                              
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: Colors.purple.withOpacity(0.2)),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.place, size: 16, color: Colors.purple),
+                                        const SizedBox(width: 4),
+                                        Expanded(
+                                          child: Text(
+                                            destName,
+                                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                        if (rating != 'N/A')
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: Colors.amber.withOpacity(0.2),
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                const Icon(Icons.star, size: 12, color: Colors.amber),
+                                                const SizedBox(width: 2),
+                                                Text(rating, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                              ],
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                    if (destCity.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Text('🏙️ $destCity', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                                    ],
+                                    if (categories != null && categories.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Wrap(
+                                        spacing: 4,
+                                        children: categories.take(3).map((cat) {
+                                          return Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: Colors.blue.withOpacity(0.1),
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                            child: Text(
+                                              cat.toString(),
+                                              style: const TextStyle(fontSize: 10, color: Colors.blue),
+                                            ),
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ],
+                          if (day['cities'] != null && (day['cities'] as List).isNotEmpty) ...[
                             const SizedBox(height: 4),
                             Text(
-                              '🏙️ ${day['city']}',
+                              '🏙️ ${(day['cities'] as List).join(', ')}',
                               style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-                            ),
-                          ],
-                          if (day['satisfies'] != null && (day['satisfies'] as List).isNotEmpty) ...[
-                            const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 4,
-                              runSpacing: 4,
-                              children: (day['satisfies'] as List).map((pref) {
-                                return Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.withOpacity(0.2),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.green, width: 0.5),
-                                  ),
-                                  child: Text(
-                                    '✓ $pref',
-                                    style: const TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.bold),
-                                  ),
-                                );
-                              }).toList(),
                             ),
                           ],
                           const SizedBox(height: 4),
                           Text(
-                            '🏨 Accommodation: ₹${day['accommodation_cost']}',
+                            '🏨 Accommodation: ₹1500/night',
                             style: TextStyle(fontSize: 14, color: Colors.grey[700]),
                           ),
                           if (day['travel_from_previous'] != null) ...[

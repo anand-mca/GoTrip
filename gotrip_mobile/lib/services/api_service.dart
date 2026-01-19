@@ -39,7 +39,7 @@ class APIService {
       } else {
         throw Exception('Failed to fetch destinations: ${response.statusCode}');
       }
-    } on http.ClientException catch (e) {
+    } on http.ClientException {
       throw Exception('Connection error: Could not reach backend. Is it running on $_baseUrl?');
     } catch (e) {
       rethrow;
@@ -64,7 +64,7 @@ class APIService {
       } else {
         throw Exception('Search failed: ${response.statusCode}');
       }
-    } on http.ClientException catch (e) {
+    } on http.ClientException {
       throw Exception('Connection error: Could not reach backend');
     } catch (e) {
       rethrow;
@@ -90,7 +90,7 @@ class APIService {
       } else {
         throw Exception('Failed to fetch destination details: ${response.statusCode}');
       }
-    } on http.ClientException catch (e) {
+    } on http.ClientException {
       throw Exception('Connection error: Could not reach backend');
     } catch (e) {
       rethrow;
@@ -127,7 +127,7 @@ class APIService {
       } else {
         throw Exception('Failed to fetch hotels: ${response.statusCode}');
       }
-    } on http.ClientException catch (e) {
+    } on http.ClientException {
       throw Exception('Connection error: Could not reach backend');
     } catch (e) {
       rethrow;
@@ -161,7 +161,7 @@ class APIService {
       } else {
         throw Exception('Failed to fetch activities: ${response.statusCode}');
       }
-    } on http.ClientException catch (e) {
+    } on http.ClientException {
       throw Exception('Connection error: Could not reach backend');
     } catch (e) {
       rethrow;
@@ -186,7 +186,7 @@ class APIService {
       } else {
         throw Exception('Failed to fetch categories: ${response.statusCode}');
       }
-    } on http.ClientException catch (e) {
+    } on http.ClientException {
       throw Exception('Connection error: Could not reach backend');
     } catch (e) {
       rethrow;

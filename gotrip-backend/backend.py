@@ -291,15 +291,16 @@ def calculate_travel_time(distance_km):
 
 def optimize_destinations(start_loc, destinations, budget, num_days, preferences, return_to_start=True):
     """
-    HUMAN-LOGICAL TRIP OPTIMIZATION:
+    REALISTIC TRIP PLANNING OPTIMIZATION:
     
     Key Principles:
-    1. PRIMARY categories (nature, adventure, history, beach) = FULL DAY attractions
-    2. SECONDARY categories (food, shopping) = SUPPLEMENTARY activities (2-3 hours)
-    3. Never allocate full day to just restaurants/markets
-    4. If local options are weak, search further (up to 300km for 3+ day trips)
-    5. Include accommodation costs per night
-    6. Balance all user preferences across the trip
+    1. MULTI-DESTINATION DAYS: Group nearby attractions (<50km) into single days
+    2. FULL DAY attractions: Resorts, homestays, large parks (6+ hours)
+    3. HALF DAY attractions: Museums, beaches, viewpoints (2-4 hours)
+    4. QUICK STOPS: Restaurants, shops, markets (1-2 hours)
+    5. Each day = 1 full-day destination OR 2-3 half-day/quick destinations
+    6. MUST satisfy ALL user preferences including food/shopping
+    7. Include accommodation costs per night
     """
     if not destinations:
         return {
@@ -314,25 +315,23 @@ def optimize_destinations(start_loc, destinations, budget, num_days, preferences
             "budget_remaining": budget
         }
     
-    print(f"\n🎯 HUMAN-LOGICAL OPTIMIZATION from {start_loc['name']}")
+    print(f"\n🎯 REALISTIC TRIP PLANNING from {start_loc['name']}")
     print(f"   User preferences: {preferences}")
     
-    # Define category importance
-    PRIMARY_CATEGORIES = {'nature', 'adventure', 'history', 'beach', 'religious', 'cultural'}
-    SECONDARY_CATEGORIES = {'food', 'shopping'}
+    # Define destination types by time required
+    FULL_DAY_KEYWORDS = ['resort', 'homestay', 'hotel', 'retreat', 'spa', 'park', 'sanctuary', 'national', 'wildlife']
+    QUICK_VISIT_KEYWORDS = ['restaurant', 'cafe', 'market', 'shop', 'street', 'viewpoint', 'museum']
     
     preference_set = set(preferences)
     
-    # Step 1: FILTER and CLASSIFY destinations
-    primary_destinations = []
-    secondary_destinations = []
-    
+    # Step 1: CLASSIFY all destinations
+    all_matching = []
     for dest in destinations:
         dest_categories = set(dest['categories'])
         matching = preference_set & dest_categories
         
         if not matching:
-            continue  # Skip if doesn't match any preference
+            continue
         
         dest['distance_from_start'] = haversine_distance(
             start_loc['lat'], start_loc['lng'],
@@ -340,110 +339,122 @@ def optimize_destinations(start_loc, destinations, budget, num_days, preferences
         )
         dest['matching_preferences'] = len(matching)
         
-        # Classify by category type
-        is_primary = bool(dest_categories & PRIMARY_CATEGORIES & preference_set)
+        # Determine visit duration based on name/type
+        dest_name_lower = dest['name'].lower()
+        is_full_day = any(keyword in dest_name_lower for keyword in FULL_DAY_KEYWORDS)
+        is_quick = any(keyword in dest_name_lower for keyword in QUICK_VISIT_KEYWORDS)
         
-        if is_primary:
-            primary_destinations.append(dest)
+        if is_full_day:
+            dest['visit_duration'] = 'full_day'  # 6-8 hours
+        elif is_quick:
+            dest['visit_duration'] = 'quick'  # 1-2 hours
         else:
-            secondary_destinations.append(dest)
+            dest['visit_duration'] = 'half_day'  # 3-4 hours
+        
+        all_matching.append(dest)
     
-    print(f"   ✓ {len(primary_destinations)} PRIMARY attractions (nature/adventure/history)")
-    print(f"   ✓ {len(secondary_destinations)} SECONDARY activities (food/shopping)")
+    print(f"   ✓ {len(all_matching)} destinations match preferences")
     
-    # Step 2: DISTANCE-BASED SELECTION based on trip duration
-    # Longer trips = can travel further for better attractions
+    # Step 2: ENSURE ALL PREFERENCES SATISFIED
+    # Track which preferences are covered
+    covered_preferences = set()
+    for dest in all_matching:
+        covered_preferences.update(set(dest['categories']) & preference_set)
+    
+    missing_prefs = preference_set - covered_preferences
+    if missing_prefs:
+        print(f"   ⚠️ Cannot satisfy preferences: {missing_prefs}")
+    
+    # Step 3: DISTANCE-BASED FILTERING
     if num_days >= 4:
-        max_distance = 300  # Can travel up to 300km for 4+ day trips
+        max_distance = 300
     elif num_days >= 2:
-        max_distance = 150  # 2-3 day trips: 150km
+        max_distance = 150
     else:
-        max_distance = 100  # 1-day trips: stay local
+        max_distance = 100
     
     print(f"   📏 Max search radius: {max_distance}km for {num_days}-day trip")
+    all_matching = [d for d in all_matching if d['distance_from_start'] <= max_distance]
     
-    # Filter by max distance
-    primary_destinations = [d for d in primary_destinations if d['distance_from_start'] <= max_distance]
-    secondary_destinations = [d for d in secondary_destinations if d['distance_from_start'] <= max_distance]
-    
-    # Step 3: SMART SELECTION
-    # Rule: Each day should have 1 PRIMARY attraction + optional secondary activities
-    selected_primary = []
-    selected_secondary = []
-    
-    # Sort primary by: matching prefs (desc), then distance (asc)
-    primary_destinations.sort(key=lambda x: (x['matching_preferences'], -x['distance_from_start']), reverse=True)
-    
-    # Select PRIMARY destinations (1 per day, max)
-    days_for_primary = min(num_days, len(primary_destinations))
-    
-    # GROUP by city for clustering
+    # Step 4: GROUP BY CITY/REGION
     from collections import defaultdict
     city_groups = defaultdict(list)
-    for dest in primary_destinations:
+    for dest in all_matching:
         city = dest.get('city', 'Unknown')
         city_groups[city].append(dest)
     
-    # If have good local cluster, use it; otherwise pick best distant city
-    local_primaries = [d for d in primary_destinations if d['distance_from_start'] <= 50]
+    # Step 5: SELECT DESTINATIONS AND BUILD MULTI-DEST DAYS
+    # Strategy: Create balanced days with 1 full-day OR 2-3 quick/half-day attractions
+    daily_plans = []
+    used_destinations = set()
+    satisfied_prefs = set()
     
-    if len(local_primaries) >= num_days:
-        print(f"   ✅ LOCAL CLUSTER: {len(local_primaries)} attractions within 50km")
-        for dest in local_primaries[:num_days]:
-            selected_primary.append(dest)
-            print(f"      + {dest['name']} ({dest['distance_from_start']:.0f}km) - {dest['categories']}")
-    else:
-        # Find best city cluster
-        print(f"   🏙️ CITY CLUSTER: Searching for best destination city...")
+    current_loc = start_loc
+    
+    for day_num in range(num_days):
+        day_destinations = []
+        day_time_budget = 8  # 8 hours available per day
         
-        city_scores = {}
-        for city, dests in city_groups.items():
-            if city == start_loc.get('name'):
-                continue
-            
-            avg_distance = sum(d['distance_from_start'] for d in dests) / len(dests) if dests else 9999
-            total_matching = sum(d['matching_preferences'] for d in dests)
-            
-            # Score: many attractions + reasonable distance
-            city_scores[city] = (len(dests) * 10 + total_matching * 5) - (avg_distance * 0.1)
+        # Try to satisfy unsatisfied preferences first
+        remaining_prefs = preference_set - satisfied_prefs
         
-        if city_scores:
-            best_city = max(city_scores, key=city_scores.get)
-            best_city_dests = city_groups[best_city]
-            
-            avg_dist = sum(d['distance_from_start'] for d in best_city_dests) / len(best_city_dests)
-            print(f"      → {best_city} ({len(best_city_dests)} attractions, ~{avg_dist:.0f}km away)")
-            
-            best_city_dests.sort(key=lambda x: x['matching_preferences'], reverse=True)
-            for dest in best_city_dests[:num_days]:
-                selected_primary.append(dest)
-                print(f"      + {dest['name']} - {dest['categories']}")
+        # Find best starting destination for this day
+        available = [d for d in all_matching if d['id'] not in used_destinations]
+        if not available:
+            break
+        
+        # Sort by: unsatisfied preference match > proximity to current location
+        def score_dest(d):
+            unsatisfied_match = len(set(d['categories']) & remaining_prefs)
+            distance = haversine_distance(current_loc['lat'], current_loc['lng'], d['lat'], d['lng'])
+            return (unsatisfied_match * 1000) - distance
+        
+        available.sort(key=score_dest, reverse=True)
+        
+        # Pick first destination
+        first_dest = available[0]
+        
+        if first_dest['visit_duration'] == 'full_day':
+            # Full day destination - takes entire day
+            day_destinations.append(first_dest)
+            used_destinations.add(first_dest['id'])
+            satisfied_prefs.update(set(first_dest['categories']) & preference_set)
+            current_loc = first_dest
+            print(f"   Day {day_num + 1}: {first_dest['name']} (full day)")
         else:
-            # Fallback: pick top primaries by score
-            for dest in primary_destinations[:num_days]:
-                selected_primary.append(dest)
-                print(f"      + {dest['name']} ({dest['distance_from_start']:.0f}km) - {dest['categories']}")
+            # Half-day/quick - try to add more nearby
+            day_destinations.append(first_dest)
+            used_destinations.add(first_dest['id'])
+            satisfied_prefs.update(set(first_dest['categories']) & preference_set)
+            
+            time_used = 4 if first_dest['visit_duration'] == 'half_day' else 1.5
+            day_time_budget -= time_used
+            
+            # Find nearby destinations to add to same day
+            nearby = [d for d in available[1:] if d['id'] not in used_destinations]
+            for dest in nearby:
+                dest_distance = haversine_distance(first_dest['lat'], first_dest['lng'], dest['lat'], dest['lng'])
+                
+                if dest_distance <= 50:  # Within 50km
+                    dest_time = 4 if dest['visit_duration'] == 'half_day' else 1.5
+                    travel_time = dest_distance / 40  # Assume 40km/h average
+                    
+                    if (dest_time + travel_time) <= day_time_budget:
+                        day_destinations.append(dest)
+                        used_destinations.add(dest['id'])
+                        satisfied_prefs.update(set(dest['categories']) & preference_set)
+                        day_time_budget -= (dest_time + travel_time)
+                        
+                        if len(day_destinations) >= 3:  # Max 3 destinations per day
+                            break
+            
+            current_loc = day_destinations[-1]
+            dest_names = [d['name'] for d in day_destinations]
+            print(f"   Day {day_num + 1}: {', '.join(dest_names)} ({len(day_destinations)} stops)")
+        
+        daily_plans.append(day_destinations)
     
-    # Select 1-2 secondary activities (food/shopping) as bonus
-    # These don't take full days - just add to itinerary
-    secondary_destinations.sort(key=lambda x: x['distance_from_start'])
-    selected_secondary = secondary_destinations[:2] if secondary_destinations else []
-    
-    if not selected_primary:
-        print("   ⚠️ No primary attractions found matching preferences!")
-        return {
-            "destinations": [],
-            "total_cost": 0,
-            "total_travel_cost": 0,
-            "total_accommodation_cost": 0,
-            "total_distance_km": 0,
-            "total_travel_time_hours": 0,
-            "route_segments": [],
-            "daily_itinerary": [],
-            "budget_remaining": budget
-        }
-    
-    # Step 4: BUILD ROUTE with ACCOMMODATION COSTS
+    # Step 6: BUILD ROUTE AND CALCULATE COSTS
     visited = []
     current_location = start_loc
     total_distance = 0
@@ -451,45 +462,40 @@ def optimize_destinations(start_loc, destinations, budget, num_days, preferences
     total_travel_time = 0
     route_segments = []
     
-    # Accommodation cost: ₹1500-2500 per night depending on destination
-    ACCOMMODATION_PER_NIGHT = 2000  # Average hotel cost in India
-    total_accommodation_cost = (num_days - 1) * ACCOMMODATION_PER_NIGHT  # -1 because last day returns home
+    ACCOMMODATION_PER_NIGHT = 2000
+    total_accommodation_cost = (len(daily_plans) - 1) * ACCOMMODATION_PER_NIGHT
     
-    for dest in selected_primary:
-        distance = haversine_distance(
-            current_location['lat'], current_location['lng'],
-            dest['lat'], dest['lng']
-        )
-        
-        road_distance = distance * 1.3
-        travel_cost = calculate_route_cost(road_distance)
-        travel_time = calculate_travel_time(road_distance)
-        
-        # Check budget (including accommodation)
-        if travel_cost + dest['cost_per_day'] > budget - total_travel_cost - total_accommodation_cost:
-            print(f"   ⚠️ Budget limit at {dest['name']}")
-            break
-        
-        route_segments.append({
-            "from": current_location['name'],
-            "to": dest['name'],
-            "distance_km": round(road_distance, 2),
-            "travel_time_hours": round(travel_time, 2),
-            "travel_cost": round(travel_cost, 2)
-        })
-        
-        visited.append({
-            **dest,
-            "days": 1,
-            "accommodation_cost": dest['cost_per_day'],
-            "satisfies_preferences": list(dest['categories'])
-        })
-        
-        total_distance += road_distance
-        total_travel_time += travel_time
-        total_travel_cost += travel_cost
-        
-        current_location = dest
+    for day_plan in daily_plans:
+        for dest in day_plan:
+            distance = haversine_distance(
+                current_location['lat'], current_location['lng'],
+                dest['lat'], dest['lng']
+            )
+            
+            road_distance = distance * 1.3
+            travel_cost = calculate_route_cost(road_distance)
+            travel_time = calculate_travel_time(road_distance)
+            
+            route_segments.append({
+                "from": current_location['name'],
+                "to": dest['name'],
+                "distance_km": round(road_distance, 2),
+                "travel_time_hours": round(travel_time, 2),
+                "travel_cost": round(travel_cost, 2)
+            })
+            
+            visited.append({
+                **dest,
+                "days": 1 if len(day_plan) == 1 else 0.5,
+                "accommodation_cost": dest['cost_per_day'],
+                "satisfies_preferences": list(dest['categories'])
+            })
+            
+            total_distance += road_distance
+            total_travel_time += travel_time
+            total_travel_cost += travel_cost
+            
+            current_location = dest
     
     # Return journey
     if return_to_start and visited:
@@ -513,35 +519,41 @@ def optimize_destinations(start_loc, destinations, budget, num_days, preferences
         total_travel_time += return_time
         total_travel_cost += return_cost
     
-    # Create itinerary with ACCOMMODATION
+    # Create realistic itinerary with multi-destination days
     daily_itinerary = []
     current_date = datetime.now()
     
-    for i, dest in enumerate(visited):
-        day_accommodation = ACCOMMODATION_PER_NIGHT if i < len(visited) - 1 else 0  # No hotel on last day (returning home)
+    segment_idx = 0
+    for day_num, day_plan in enumerate(daily_plans):
+        day_accommodation = ACCOMMODATION_PER_NIGHT if day_num < len(daily_plans) - 1 else 0
         
-        # Add secondary activities to relevant days
-        secondary_notes = []
-        if i == 0 and len(selected_secondary) > 0:
-            secondary_notes.append(f"+ {selected_secondary[0]['name']} (food/shopping)")
-        if i == len(visited) - 1 and len(selected_secondary) > 1:
-            secondary_notes.append(f"+ {selected_secondary[1]['name']} (food/shopping)")
+        # Combine activities for multi-destination days
+        day_activities = []
+        day_cities = set()
+        day_satisfies = set()
+        
+        for dest in day_plan:
+            day_activities.append(f"{dest['name']} - {dest['description']}")
+            day_cities.add(dest.get('city', 'Unknown'))
+            day_satisfies.update(dest['categories'])
         
         daily_itinerary.append({
-            "day": i + 1,
-            "date": (current_date + timedelta(days=i)).strftime("%Y-%m-%d"),
-            "destination": dest['name'],
-            "city": dest.get('city', 'Unknown'),
-            "satisfies": dest['satisfies_preferences'],
-            "activities": [dest['description']] + secondary_notes,
-            "accommodation_cost": dest['accommodation_cost'],
+            "day": day_num + 1,
+            "date": (current_date + timedelta(days=day_num)).strftime("%Y-%m-%d"),
+            "destinations": [d['name'] for d in day_plan],
+            "cities": list(day_cities),
+            "satisfies": list(day_satisfies),
+            "activities": day_activities,
+            "accommodation_cost": sum(d['cost_per_day'] for d in day_plan),
             "hotel_cost": day_accommodation,
-            "travel_from_previous": route_segments[i] if i < len(route_segments) else None
+            "travel_segments": route_segments[segment_idx:segment_idx + len(day_plan)]
         })
+        segment_idx += len(day_plan)
     
     total_cost = total_travel_cost + total_accommodation_cost + sum(d['accommodation_cost'] for d in visited)
     
-    print(f"\n📊 Final: {len(visited)} days, {total_distance:.0f}km, ₹{total_cost:.0f}")
+    print(f"\n📊 Final: {len(daily_plans)} days, {len(visited)} destinations, {total_distance:.0f}km, ₹{total_cost:.0f}")
+    print(f"   ✅ Preferences satisfied: {satisfied_prefs}")
     print(f"   💰 Breakdown: Travel ₹{total_travel_cost:.0f} + Hotels ₹{total_accommodation_cost:.0f} + Activities ₹{sum(d['accommodation_cost'] for d in visited):.0f}")
     
     return {
@@ -554,7 +566,7 @@ def optimize_destinations(start_loc, destinations, budget, num_days, preferences
         "route_segments": route_segments,
         "daily_itinerary": daily_itinerary,
         "budget_remaining": round(budget - total_cost, 2),
-        "all_preferences_satisfied": True
+        "all_preferences_satisfied": len(satisfied_prefs) == len(preference_set)
     }
 
 # API Endpoints
@@ -593,61 +605,121 @@ def plan_trip(request: TripRequest):
         if num_days < 1:
             raise HTTPException(status_code=400, detail="Invalid date range: end date must be after start date")
         
-        # ===== HYBRID APPROACH: Try API first, fallback to curated database =====
+        # ===== CURATED-FIRST APPROACH: Quality over quantity =====
         cache_key = f"{request.start_location['lat']}_{request.start_location['lng']}_{'_'.join(sorted(request.preferences))}"
         
         if cache_key in destination_cache:
             print(f"\n💾 CACHED: Instant response for {request.start_location['name']}")
             filtered_destinations = destination_cache[cache_key]
         else:
-            # Try real API first (fast mode)
-            print(f"\n🌍 Trying API search for {request.start_location['name']}...")
+            # STEP 1: Try curated database FIRST (high quality, real attractions)
+            print(f"\n📚 Searching curated database for {request.start_location['name']}...")
             
-            real_destinations = tourism_client.smart_destination_search(
-                start_lat=request.start_location['lat'],
-                start_lng=request.start_location['lng'],
-                preferences=request.preferences,
-                max_distance_km=800,
-                min_destinations=20
+            nearby_curated = get_destinations_near(
+                request.start_location['lat'],
+                request.start_location['lng'],
+                max_distance_km=800
             )
             
-            if len(real_destinations) < 5:
-                # Fallback to curated database
-                print(f"⚠️ API found only {len(real_destinations)} destinations. Using curated database...")
+            curated_filtered = [
+                dest for dest in nearby_curated
+                if any(pref in dest['categories'] for pref in request.preferences)
+            ]
+            
+            print(f"✅ Curated database: {len(curated_filtered)} quality destinations found")
+            
+            # Initialize for all code paths
+            quality_api_destinations = []
+            
+            # STEP 2: Only use API if curated doesn't have enough (supplement, don't replace)
+            if len(curated_filtered) < 10:
+                print(f"\n🌍 Supplementing with API search...")
                 
-                nearby_curated = get_destinations_near(
-                    request.start_location['lat'],
-                    request.start_location['lng'],
-                    max_distance_km=800
-                )
+                try:
+                    real_destinations = tourism_client.smart_destination_search(
+                        start_lat=request.start_location['lat'],
+                        start_lng=request.start_location['lng'],
+                        preferences=request.preferences,
+                        max_distance_km=800,
+                        min_destinations=20
+                    )
+                    
+                    print(f"🌍 API: {len(real_destinations)} destinations found")
+                except Exception as e:
+                    print(f"⚠️ API search failed: {str(e)}")
+                    real_destinations = []
                 
-                curated_filtered = [
-                    dest for dest in nearby_curated
-                    if any(pref in dest['categories'] for pref in request.preferences)
-                ]
+                # Filter out low-quality API results
+                EXCLUDED_KEYWORDS = ['supermarket', 'shop', 'store', 'mart', 'grocery', 'pharmacy', 'atm']
                 
-                print(f"📚 Curated database: {len(curated_filtered)} destinations found")
-                
-                # Use curated database format directly
-                filtered_destinations = curated_filtered
-            else:
-                # Convert API results to our format
-                filtered_destinations = []
                 for dest in real_destinations:
-                    filtered_destinations.append({
-                        'id': f"{dest['source']}_{dest['name'].replace(' ', '_')}",
-                        'name': dest['name'],
-                        'city': dest.get('base_city', dest['name']),
-                        'region': dest.get('region', 'India'),
-                        'lat': dest['lat'],
-                        'lng': dest['lng'],
-                        'categories': [dest.get('category', 'attraction')],
-                        'cost_per_day': dest.get('cost_per_day', 2000),
-                        'rating': dest.get('rating', 4.0),
-                        'description': dest.get('tags', {}).get('description', f"Attraction in {dest.get('base_city', 'India')}")
-                    })
+                    try:
+                        dest_name_lower = dest['name'].lower()
+                        # Exclude generic shops unless it's a famous mall/market
+                        is_excluded = any(keyword in dest_name_lower for keyword in EXCLUDED_KEYWORDS)
+                        is_famous = any(keyword in dest_name_lower for keyword in ['mall', 'palace', 'fort', 'beach', 'museum', 'temple', 'church'])
+                        
+                        # CRITICAL: Geographic validation - ensure destination is actually near start location
+                        import math
+                        def haversine(lat1, lon1, lat2, lon2):
+                            R = 6371
+                            lat1_rad, lat2_rad = math.radians(lat1), math.radians(lat2)
+                            delta_lat = math.radians(lat2 - lat1)
+                            delta_lon = math.radians(lon2 - lon1)
+                            a = math.sin(delta_lat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon/2)**2
+                            c = 2 * math.asin(math.sqrt(a))
+                            return R * c
+                        
+                        # Handle both 'lon' and 'lng' field names from different APIs
+                        dest_lng = dest.get('lon') or dest.get('lng')
+                        dest_lat = dest.get('lat')
+                        
+                        if not dest_lat or not dest_lng:
+                            print(f"   ⚠️ Skipping {dest['name']} - missing coordinates")
+                            continue
+                        
+                        distance_km = haversine(request.start_location['lat'], request.start_location['lng'], dest_lat, dest_lng)
+                        
+                        # Reject if too far (prevents Mumbai beaches appearing in Bangalore searches)
+                        if distance_km > 500:  # Max 500km radius
+                            print(f"   ❌ Rejected {dest['name']} ({distance_km:.0f}km away - too far)")
+                            continue
+                        
+                        if not is_excluded or is_famous:
+                            quality_api_destinations.append({
+                                'id': f"{dest['source']}_{dest['name'].replace(' ', '_')}",
+                                'name': dest['name'],
+                                'city': dest.get('city', 'Unknown'),
+                                'state': dest.get('state', 'India'),
+                                'lat': dest_lat,
+                                'lng': dest_lng,
+                                'categories': dest['categories'],
+                                'cost_per_day': 1500,
+                                'rating': 4.0,
+                                'description': f"{dest['name']} - {', '.join(dest['categories'])} ({distance_km:.0f}km away)"
+                            })
+                    except Exception as e:
+                        print(f"   ⚠️ Error processing destination {dest.get('name', 'Unknown')}: {str(e)}")
+                        continue
                 
-                print(f"🌍 API: {len(filtered_destinations)} destinations found")
+                print(f"✨ Filtered to {len(quality_api_destinations)} quality API destinations within 500km")
+                
+                # Combine: Curated (priority) + Quality API (supplement)
+                filtered_destinations = curated_filtered + quality_api_destinations
+            else:
+                # Curated database has enough quality destinations
+                filtered_destinations = curated_filtered
+            
+            print(f"🌍 Total: {len(filtered_destinations)} destinations (Curated: {len(curated_filtered)}, API: {len(quality_api_destinations) if len(curated_filtered) < 10 else 0})")
+            
+            # Check if user wants beaches but we're in a landlocked city
+            if 'beach' in request.preferences:
+                has_beaches = any('beach' in dest.get('categories', []) for dest in filtered_destinations)
+                landlocked_cities = ['bangalore', 'bengaluru', 'delhi', 'jaipur', 'agra', 'varanasi']
+                
+                if not has_beaches and any(city in request.start_location['name'].lower() for city in landlocked_cities):
+                    print(f"⚠️ NOTE: {request.start_location['name']} is landlocked - nearest beaches are 300-400km away")
+                    print(f"   Consider: Gokarna (350km), Mangalore (360km), Goa (570km) for beach trips")
             
             # Cache the results
             destination_cache[cache_key] = filtered_destinations

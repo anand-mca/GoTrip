@@ -554,7 +554,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ),
         const SizedBox(height: AppSpacing.xs),
         DropdownButtonFormField<String>(
-          value: value,
+          initialValue: value,
           items: items
               .map((item) => DropdownMenuItem(value: item, child: Text(item)))
               .toList(),

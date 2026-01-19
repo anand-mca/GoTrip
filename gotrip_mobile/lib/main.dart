@@ -11,7 +11,6 @@ import 'screens/bookings_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/trip_detail_screen.dart';
 import 'screens/trip_planning_screen.dart';
-import 'screens/plan_trip_screen.dart';
 import 'screens/admin_dashboard_screen.dart';
 import 'config/supabase_config.dart';
 import 'services/supabase_service.dart';

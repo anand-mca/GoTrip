@@ -16,7 +16,6 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   final List<String> savedTrips = [];
   bool _dataLoaded = false;
-  String _selectedCategory = 'All';
 
   @override
   void initState() {
@@ -160,34 +159,16 @@ class _HomeScreenState extends State<HomeScreen> {
                         );
                       }
 
-                      // Filter by selected category
+                      // Just show first 10 destinations without filtering
                       List<dynamic> destinationsToDisplay = destinationProvider.destinations.isEmpty 
                           ? _fallbackDestinations 
-                          : destinationProvider.destinations;
-                      
-                      if (_selectedCategory != 'All') {
-                        destinationsToDisplay = destinationsToDisplay.where((d) => d.category == _selectedCategory).toList();
-                      }
-                      
-                      destinationsToDisplay = destinationsToDisplay.take(10).toList();
+                          : destinationProvider.destinations.take(10).toList();
 
                       if (destinationsToDisplay.isEmpty) {
                         return SizedBox(
                           height: 280,
                           child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Text('⚠️ No destinations in this category'),
-                                const SizedBox(height: AppSpacing.md),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    setState(() => _selectedCategory = 'All');
-                                  },
-                                  child: const Text('View All'),
-                                ),
-                              ],
-                            ),
+                            child: Text('No destinations available'),
                           ),
                         );
                       }
@@ -234,46 +215,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       );
                     },
-                  ),
-                ],
-              ),
-            ),
-            // Categories Section
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Categories',
-                    style: Theme.of(context).textTheme.displaySmall,
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _buildCategoryChip('All', _selectedCategory == 'All', () {
-                          setState(() => _selectedCategory = 'All');
-                        }),
-                        const SizedBox(width: AppSpacing.md),
-                        _buildCategoryChip('Heritage', _selectedCategory == 'Heritage', () {
-                          setState(() => _selectedCategory = 'Heritage');
-                        }),
-                        const SizedBox(width: AppSpacing.md),
-                        _buildCategoryChip('Beach', _selectedCategory == 'Beach', () {
-                          setState(() => _selectedCategory = 'Beach');
-                        }),
-                        const SizedBox(width: AppSpacing.md),
-                        _buildCategoryChip('Nature', _selectedCategory == 'Nature', () {
-                          setState(() => _selectedCategory = 'Nature');
-                        }),
-                        const SizedBox(width: AppSpacing.md),
-                        _buildCategoryChip('Adventure', _selectedCategory == 'Adventure', () {
-                          setState(() => _selectedCategory = 'Adventure');
-                        }),
-                      ],
-                    ),
                   ),
                 ],
               ),
@@ -376,18 +317,4 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildCategoryChip(String label, bool isSelected, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Chip(
-        label: Text(label),
-        backgroundColor: isSelected ? AppColors.primary : AppColors.surfaceAlt,
-        labelStyle: TextStyle(
-          color: isSelected ? Colors.white : AppColors.textPrimary,
-          fontWeight: FontWeight.w600,
-        ),
-        side: isSelected ? null : const BorderSide(color: AppColors.border),
-      ),
-    );
-  }
 }

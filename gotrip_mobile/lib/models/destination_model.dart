@@ -42,12 +42,13 @@ class Destination {
   factory Destination.fromJson(Map<String, dynamic> json) {
     // Parse duration - can be int or string like "4-5 hours"
     int parsedDuration = 0;
-    if (json['duration'] != null) {
-      if (json['duration'] is int) {
-        parsedDuration = json['duration'];
-      } else if (json['duration'] is String) {
+    final durationField = json['duration'] ?? json['visit_duration_hours'];
+    if (durationField != null) {
+      if (durationField is int) {
+        parsedDuration = durationField;
+      } else if (durationField is String) {
         // Try to extract first number from string like "4-5 hours"
-        final str = json['duration'].toString();
+        final str = durationField.toString();
         final match = RegExp(r'\d+').firstMatch(str);
         if (match != null) {
           parsedDuration = int.parse(match.group(0) ?? '0');
@@ -55,21 +56,39 @@ class Destination {
       }
     }
 
+    // Parse photos array - use first photo as image
+    String imageUrl = '';
+    final photos = json['photos'];
+    if (photos is List && photos.isNotEmpty) {
+      imageUrl = photos[0].toString();
+    } else if (json['image'] != null) {
+      imageUrl = json['image'].toString();
+    }
+
+    // Parse categories array - use first category
+    String categoryStr = '';
+    final categories = json['categories'];
+    if (categories is List && categories.isNotEmpty) {
+      categoryStr = categories[0].toString();
+    } else if (json['category'] != null) {
+      categoryStr = json['category'].toString();
+    }
+
     return Destination(
       id: json['id'] ?? '',
-      title: json['title'] ?? '',
-      location: json['location'] ?? '',
+      title: json['name'] ?? json['title'] ?? '',
+      location: '${json['city'] ?? ''}, ${json['state'] ?? ''}',
       description: json['description'] ?? '',
-      image: json['image'] ?? '',
+      image: imageUrl,
       rating: (json['rating'] ?? 0.0).toDouble(),
       reviews: json['reviews'] ?? 0,
-      price: (json['price'] ?? 0.0).toDouble(),
+      price: (json['cost_per_day'] ?? json['price'] ?? 1500).toDouble(),
       duration: parsedDuration,
       difficulty: json['difficulty'] ?? 'Easy',
-      highlights: _parseList(json['highlights']),
-      amenities: _parseList(json['amenities']),
+      highlights: _parseList(json['nearby_attractions']),
+      amenities: _parseList(json['facilities']),
       groupSize: json['groupSize'] ?? json['group_size'] ?? json['groupsize'] ?? 0,
-      category: json['category'] ?? '',
+      category: categoryStr,
       latitude: (json['latitude'] ?? 0.0).toDouble(),
       longitude: (json['longitude'] ?? 0.0).toDouble(),
       createdAt: json['created_at'] != null 

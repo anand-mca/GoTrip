@@ -100,7 +100,7 @@ class SupabaseService {
       final response = await client
           .from('destinations')
           .select()
-          .order('title', ascending: true);
+          .order('name', ascending: true);
       print('✓ Query success! Got ${response.length} rows');
       if (response.isEmpty) {
         print('⚠️  Table is empty or data not available');
@@ -120,7 +120,7 @@ class SupabaseService {
       final response = await client
           .from('destinations')
           .select()
-          .or('title.ilike.%$query%,location.ilike.%$query%,category.ilike.%$query%');
+          .or('name.ilike.%$query%,city.ilike.%$query%,state.ilike.%$query%');
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
       print('Error searching destinations: $e');

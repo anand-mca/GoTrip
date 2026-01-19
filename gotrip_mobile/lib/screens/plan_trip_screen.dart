@@ -13,7 +13,12 @@ class _PlanTripScreenState extends State<PlanTripScreen> {
   late DateTime _startDate;
   late DateTime _endDate;
   late TextEditingController _budgetController;
+  late TextEditingController _cityController;
   late Set<String> _selectedPreferences;
+  String? _selectedCity;
+  List<String> _availableCities = [];
+  bool _citiesLoading = false;
+  String? _cityError;
 
   @override
   void initState() {
@@ -21,12 +26,74 @@ class _PlanTripScreenState extends State<PlanTripScreen> {
     _startDate = DateTime.now();
     _endDate = DateTime.now().add(const Duration(days: 7));
     _budgetController = TextEditingController();
+    _cityController = TextEditingController();
     _selectedPreferences = {};
+    _loadAvailableCities();
+  }
+
+  Future<void> _loadAvailableCities() async {
+    // Hardcoded list of cities from the database
+    final citiesList = [
+      'Srinagar',
+      'Gulmarg',
+      'Pahalgam',
+      'Sonmarg',
+      'Leh',
+      'Nubra',
+      'Changthang',
+      'Shimla',
+      'Manali',
+      'Dharamshala',
+      'Spiti',
+      'Dalhousie',
+      'Rishikesh',
+      'Haridwar',
+      'Nainital',
+      'Mussoorie',
+      'Auli',
+      'Uttarkashi',
+      'Kedarnath',
+      'Badrinath',
+      'Delhi',
+      'Agra',
+      'Varanasi',
+      'Lucknow',
+      'Mathura',
+      'Ayodhya',
+      'Jaipur',
+      'Udaipur',
+      'Jodhpur',
+      'Jaisalmer',
+      'Chittorgarh',
+      'Ranthambore',
+      'Kevadia',
+      'Kutch',
+      'Ahmedabad',
+      'Junagadh',
+      'Somnath',
+      'Dwarka',
+      'Mumbai',
+      'Aurangabad',
+      'Pune',
+      'Lonavala',
+      'Shirdi',
+      'Mahabaleshwar',
+      'Goa',
+    ];
+
+    setState(() {
+      _availableCities = citiesList..sort();
+      if (_availableCities.isNotEmpty) {
+        _selectedCity = _availableCities.first;
+        print('🏙️ Cities loaded: ${_availableCities.length}');
+      }
+    });
   }
 
   @override
   void dispose() {
     _budgetController.dispose();
+    _cityController.dispose();
     super.dispose();
   }
 
@@ -92,6 +159,11 @@ class _PlanTripScreenState extends State<PlanTripScreen> {
   }
 
   void _createTripPlan() {
+    // Validate city
+    if (!_validateCity(_cityController.text)) {
+      return;
+    }
+
     final budget = double.tryParse(_budgetController.text);
 
     if (budget == null || budget <= 0) {
@@ -124,7 +196,7 @@ class _PlanTripScreenState extends State<PlanTripScreen> {
     // Show success message
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Trip planned! Duration: $_tripDuration days'),
+        content: Text('Trip planned from $_selectedCity! Duration: $_tripDuration days'),
         backgroundColor: AppColors.success,
       ),
     );
@@ -160,6 +232,10 @@ class _PlanTripScreenState extends State<PlanTripScreen> {
           children: [
             // Trip Duration Overview
             _buildDurationOverview(),
+            const SizedBox(height: AppSpacing.xl),
+
+            // Starting City Section
+            _buildCitySelectionSection(),
             const SizedBox(height: AppSpacing.xl),
 
             // Date Selection Section
@@ -274,6 +350,106 @@ class _PlanTripScreenState extends State<PlanTripScreen> {
             fontSize: 18,
             fontWeight: FontWeight.bold,
             color: Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
+bool _validateCity(String city) {
+    if (city.isEmpty) {
+      setState(() {
+        _cityError = 'Please enter a city';
+      });
+      return false;
+    }
+    
+    // Check if city exists in database (case-insensitive)
+    final cityLower = city.toLowerCase().trim();
+    final isValid = _availableCities.any((c) => c.toLowerCase() == cityLower);
+    
+    if (!isValid) {
+      setState(() {
+        _cityError = 'City not found in database. Available cities: ${_availableCities.take(10).join(", ")}...';
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('⚠️ "$city" is not in our database. Please choose from: ${_availableCities.join(", ")}'),
+          backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: 'OK',
+            textColor: Colors.white,
+            onPressed: () {},
+          ),
+        ),
+      );
+      return false;
+    }
+    
+    setState(() {
+      _cityError = null;
+      _selectedCity = _availableCities.firstWhere(
+        (c) => c.toLowerCase() == cityLower,
+      );
+    });
+    return true;
+  }
+
+  Widget _buildCitySelectionSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Based city',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        TextField(
+          controller: _cityController,
+          onChanged: (value) {
+            // Clear error when user starts typing
+            if (_cityError != null) {
+              setState(() {
+                _cityError = null;
+              });
+            }
+          },
+          decoration: InputDecoration(
+            hintText: 'Enter your starting city',
+            prefixIcon: const Icon(Icons.location_on, color: AppColors.primary),
+            errorText: _cityError,
+            errorMaxLines: 3,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              borderSide: const BorderSide(color: AppColors.border),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              borderSide: const BorderSide(color: AppColors.border),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              borderSide: const BorderSide(color: AppColors.primary, width: 2),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              borderSide: const BorderSide(color: AppColors.error, width: 2),
+            ),
+            filled: true,
+            fillColor: AppColors.surface,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          'Available cities: ${_availableCities.take(5).join(", ")}...',
+          style: const TextStyle(
+            fontSize: 12,
+            color: AppColors.textSecondary,
           ),
         ),
       ],

@@ -226,7 +226,7 @@ DESTINATIONS_DB = [
         "categories": ["beach", "food", "shopping"],
         "cost_per_day": 1800,
         "rating": 4.4,
-        "description": "Waterfront promenade, sunset views, shopping malls, restaurants"
+        "description": "Waterfront promenade, sunset views, street food, restaurants"
     },
     {
         "id": "kochi_3",
@@ -250,7 +250,93 @@ DESTINATIONS_DB = [
         "categories": ["shopping", "food", "cultural"],
         "cost_per_day": 1500,
         "rating": 4.2,
-        "description": "Local market, spices, handicrafts, Kerala cuisine"
+        "description": "Famous shopping street, spices, handicrafts, Kerala cuisine"
+    },
+    {
+        "id": "kochi_5",
+        "name": "Lulu Mall Edapally",
+        "city": "Kochi",
+        "state": "Kerala",
+        "lat": 10.0161,
+        "lng": 76.3108,
+        "categories": ["shopping", "food"],
+        "cost_per_day": 2000,
+        "rating": 4.7,
+        "description": "India's largest mall, shopping, entertainment, food court, cinema"
+    },
+    {
+        "id": "kochi_6",
+        "name": "Tripunithura Hill Palace Museum",
+        "city": "Kochi",
+        "state": "Kerala",
+        "lat": 9.9387,
+        "lng": 76.3479,
+        "categories": ["history", "cultural"],
+        "cost_per_day": 1800,
+        "rating": 4.5,
+        "description": "Royal palace museum, Kerala history, archaeological artifacts"
+    },
+    {
+        "id": "kochi_7",
+        "name": "Kadamakkudy Islands",
+        "city": "Kochi",
+        "state": "Kerala",
+        "lat": 10.0537,
+        "lng": 76.2847,
+        "categories": ["nature", "beach"],
+        "cost_per_day": 1600,
+        "rating": 4.3,
+        "description": "Backwater islands, village tourism, nature walks, peaceful"
+    },
+    
+    # ========== ALAPPUZHA - BACKWATERS & BEACHES ==========
+    {
+        "id": "alappuzha_1",
+        "name": "Alappuzha Beach",
+        "city": "Alappuzha",
+        "state": "Kerala",
+        "lat": 9.4981,
+        "lng": 76.3388,
+        "categories": ["beach", "food"],
+        "cost_per_day": 1700,
+        "rating": 4.4,
+        "description": "Beautiful beach, lighthouse, sunset views, beach shacks"
+    },
+    {
+        "id": "alappuzha_2",
+        "name": "Alappuzha Backwaters",
+        "city": "Alappuzha",
+        "state": "Kerala",
+        "lat": 9.4981,
+        "lng": 76.3388,
+        "categories": ["nature", "adventure"],
+        "cost_per_day": 2500,
+        "rating": 4.8,
+        "description": "Houseboat cruises, backwater village tours, Kerala cuisine"
+    },
+    {
+        "id": "alappuzha_3",
+        "name": "Toddy Shops Alappuzha",
+        "city": "Alappuzha",
+        "state": "Kerala",
+        "lat": 9.4981,
+        "lng": 76.3388,
+        "categories": ["food", "cultural"],
+        "cost_per_day": 1200,
+        "rating": 4.3,
+        "description": "Traditional toddy shops, Kerala seafood, local experience"
+    },
+    {
+        "id": "alappuzha_4",
+        "name": "Marari Beach",
+        "city": "Alappuzha",
+        "state": "Kerala",
+        "lat": 9.6025,
+        "lng": 76.2950,
+        "categories": ["beach", "nature"],
+        "cost_per_day": 2000,
+        "rating": 4.6,
+        "description": "Pristine beach, fishing villages, quiet retreat, resorts"
     },
     
     # ========== JAIPUR - CULTURAL & SHOPPING ==========
@@ -531,7 +617,7 @@ DESTINATIONS_DB = [
         "description": "Red fort, marble handicrafts, leather goods, Mughal history"
     },
     
-    # ========== BANGALORE - URBAN ==========
+    # ========== BANGALORE - URBAN & NATURE ==========
     {
         "id": "bangalore_1",
         "name": "Lalbagh Gardens",
@@ -568,6 +654,251 @@ DESTINATIONS_DB = [
         "rating": 4.3,
         "description": "Urban park, jogging trails, morning walks, greenery"
     },
+    {
+        "id": "bangalore_4",
+        "name": "Nandi Hills",
+        "city": "Bangalore",
+        "state": "Karnataka",
+        "lat": 13.3703,
+        "lng": 77.6838,
+        "categories": ["nature", "adventure"],
+        "cost_per_day": 1800,
+        "rating": 4.6,
+        "description": "Hill station 60km from Bangalore, sunrise viewpoint, trekking, cycling"
+    },
+    {
+        "id": "bangalore_5",
+        "name": "Wonderla Amusement Park",
+        "city": "Bangalore",
+        "state": "Karnataka",
+        "lat": 12.8347,
+        "lng": 77.3906,
+        "categories": ["adventure", "food"],
+        "cost_per_day": 3000,
+        "rating": 4.5,
+        "description": "Water park, thrill rides, family entertainment, restaurants"
+    },
+    {
+        "id": "bangalore_6",
+        "name": "Commercial Street",
+        "city": "Bangalore",
+        "state": "Karnataka",
+        "lat": 12.9834,
+        "lng": 77.6101,
+        "categories": ["shopping", "food"],
+        "cost_per_day": 1800,
+        "rating": 4.3,
+        "description": "Shopping street, local fashion, street food, cafes"
+    },
+    {
+        "id": "bangalore_7",
+        "name": "Bannerghatta National Park",
+        "city": "Bangalore",
+        "state": "Karnataka",
+        "lat": 12.7990,
+        "lng": 77.5773,
+        "categories": ["nature", "adventure"],
+        "cost_per_day": 2000,
+        "rating": 4.4,
+        "description": "Zoo, safari, butterfly park, wildlife conservation, nature trails"
+    },
+    {
+        "id": "bangalore_8",
+        "name": "UB City Mall",
+        "city": "Bangalore",
+        "state": "Karnataka",
+        "lat": 12.9716,
+        "lng": 77.5947,
+        "categories": ["shopping", "food"],
+        "cost_per_day": 2500,
+        "rating": 4.5,
+        "description": "Luxury mall, fine dining, international brands, rooftop bars"
+    },
+    {
+        "id": "bangalore_9",
+        "name": "Vidhana Soudha",
+        "city": "Bangalore",
+        "state": "Karnataka",
+        "lat": 12.9794,
+        "lng": 77.5912,
+        "categories": ["history", "cultural"],
+        "cost_per_day": 1000,
+        "rating": 4.4,
+        "description": "Legislative building, Dravidian architecture, evening illumination, photography"
+    },
+    {
+        "id": "bangalore_10",
+        "name": "Bangalore Palace",
+        "city": "Bangalore",
+        "state": "Karnataka",
+        "lat": 12.9987,
+        "lng": 77.5920,
+        "categories": ["history", "cultural"],
+        "cost_per_day": 1500,
+        "rating": 4.4,
+        "description": "Tudor-style palace, royal artifacts, guided tours, gardens"
+    },
+    
+    # ========== KOLKATA - CULTURAL & HERITAGE ==========
+    {
+        "id": "kolkata_1",
+        "name": "Victoria Memorial",
+        "city": "Kolkata",
+        "state": "West Bengal",
+        "lat": 22.5448,
+        "lng": 88.3426,
+        "categories": ["history", "cultural"],
+        "cost_per_day": 1500,
+        "rating": 4.6,
+        "description": "Marble monument, museum, British Raj history, gardens, light & sound show"
+    },
+    {
+        "id": "kolkata_2",
+        "name": "Howrah Bridge",
+        "city": "Kolkata",
+        "state": "West Bengal",
+        "lat": 22.5851,
+        "lng": 88.3468,
+        "categories": ["history", "cultural"],
+        "cost_per_day": 800,
+        "rating": 4.5,
+        "description": "Iconic cantilever bridge, river views, photography, evening walk"
+    },
+    {
+        "id": "kolkata_3",
+        "name": "Park Street",
+        "city": "Kolkata",
+        "state": "West Bengal",
+        "lat": 22.5534,
+        "lng": 88.3590,
+        "categories": ["food", "shopping", "cultural"],
+        "cost_per_day": 2200,
+        "rating": 4.5,
+        "description": "Restaurants, cafes, nightlife, shopping, Christmas celebrations, colonial charm"
+    },
+    {
+        "id": "kolkata_4",
+        "name": "Indian Museum",
+        "city": "Kolkata",
+        "state": "West Bengal",
+        "lat": 22.5583,
+        "lng": 88.3511,
+        "categories": ["history", "cultural"],
+        "cost_per_day": 1200,
+        "rating": 4.4,
+        "description": "Oldest museum in India, archaeology, art, antiques, natural history"
+    },
+    {
+        "id": "kolkata_5",
+        "name": "Dakshineswar Kali Temple",
+        "city": "Kolkata",
+        "state": "West Bengal",
+        "lat": 22.6552,
+        "lng": 88.3582,
+        "categories": ["religious", "cultural"],
+        "cost_per_day": 1000,
+        "rating": 4.6,
+        "description": "Hindu temple on Ganges, Ramakrishna connection, architecture, river views"
+    },
+    {
+        "id": "kolkata_6",
+        "name": "New Market (Hogg Market)",
+        "city": "Kolkata",
+        "state": "West Bengal",
+        "lat": 22.5567,
+        "lng": 88.3512,
+        "categories": ["shopping", "food"],
+        "cost_per_day": 1500,
+        "rating": 4.3,
+        "description": "Colonial-era market, clothes, accessories, street food, local shopping experience"
+    },
+    {
+        "id": "kolkata_7",
+        "name": "Science City Kolkata",
+        "city": "Kolkata",
+        "state": "West Bengal",
+        "lat": 22.5426,
+        "lng": 88.4147,
+        "categories": ["cultural", "adventure"],
+        "cost_per_day": 1800,
+        "rating": 4.4,
+        "description": "Science museum, space theatre, 3D shows, interactive exhibits, evolution park"
+    },
+    {
+        "id": "kolkata_8",
+        "name": "Prinsep Ghat",
+        "city": "Kolkata",
+        "state": "West Bengal",
+        "lat": 22.5565,
+        "lng": 88.3274,
+        "categories": ["nature", "cultural"],
+        "cost_per_day": 1000,
+        "rating": 4.5,
+        "description": "Ganges riverfront, boat rides, sunset views, Greek memorial, street food"
+    },
+    {
+        "id": "kolkata_9",
+        "name": "South City Mall",
+        "city": "Kolkata",
+        "state": "West Bengal",
+        "lat": 22.5011,
+        "lng": 88.3639,
+        "categories": ["shopping", "food"],
+        "cost_per_day": 2000,
+        "rating": 4.4,
+        "description": "Largest mall in East India, shopping, multiplex, food court, entertainment"
+    },
+    {
+        "id": "kolkata_10",
+        "name": "Eco Tourism Park",
+        "city": "Kolkata",
+        "state": "West Bengal",
+        "lat": 22.6139,
+        "lng": 88.4634,
+        "categories": ["nature", "adventure"],
+        "cost_per_day": 1500,
+        "rating": 4.3,
+        "description": "Urban park, boating, cycling, gardens, musical fountain, zipline"
+    },
+    {
+        "id": "kolkata_11",
+        "name": "Digha Beach",
+        "city": "Kolkata Region",
+        "state": "West Bengal",
+        "lat": 21.6769,
+        "lng": 87.5197,
+        "categories": ["beach", "nature"],
+        "cost_per_day": 2000,
+        "rating": 4.2,
+        "description": "Popular beach resort 185km from Kolkata, weekend getaway, seafood, sunrise views"
+    },
+    {
+        "id": "kolkata_12",
+        "name": "Mandarmani Beach",
+        "city": "Kolkata Region",
+        "state": "West Bengal",
+        "lat": 21.6608,
+        "lng": 87.7897,
+        "categories": ["beach", "nature", "food"],
+        "cost_per_day": 2200,
+        "rating": 4.4,
+        "description": "Longest drivable beach in India, 170km from Kolkata, beach resorts, red crabs, seafood"
+    },
+    {
+        "id": "kolkata_13",
+        "name": "Shankarpur Beach",
+        "city": "Kolkata Region",
+        "state": "West Bengal",
+        "lat": 21.6333,
+        "lng": 87.5333,
+        "categories": ["beach", "nature"],
+        "cost_per_day": 1800,
+        "rating": 4.1,
+        "description": "Pristine beach 175km from Kolkata, quieter than Digha, fishing village charm"
+    },
+    
+    # NOTE: Bengaluru has NO natural beaches nearby (nearest is 350km to Gokarna/Mangalore)
+    # Recommend coastal destinations as separate trips from Bangalore
 ]
 
 

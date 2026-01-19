@@ -30,11 +30,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   List<String> get _categories {
     final provider = context.read<DestinationProvider>();
-    final categories = {'All'};
+    final categorySet = <String>{'All'};
+    
+    // Only add categories that have destinations in the database
     for (var destination in provider.destinations) {
-      categories.add(destination.category);
+      categorySet.add(destination.category);
     }
-    return categories.toList();
+    
+    return categorySet.toList();
   }
 
   List<Destination> _getFilteredDestinations(List<Destination> destinations) {
@@ -42,7 +45,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
       final matchesSearch = destination.title.toLowerCase().contains(_searchController.text.toLowerCase()) ||
           destination.location.toLowerCase().contains(_searchController.text.toLowerCase());
       final matchesDifficulty = _selectedDifficulty == 'All' || destination.difficulty.toLowerCase() == _selectedDifficulty.toLowerCase();
-      final matchesCategory = _selectedCategory == 'All' || destination.category == _selectedCategory;
+      
+      // Simple direct matching with lowercase comparison
+      final matchesCategory = _selectedCategory == 'All' || 
+          destination.category.toLowerCase() == _selectedCategory.toLowerCase();
+      
       return matchesSearch && matchesDifficulty && matchesCategory;
     }).toList();
   }
