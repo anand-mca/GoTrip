@@ -107,5 +107,13 @@ app.*.map.json
 *.pem
 *.p12
 
+# API Keys and Configuration Files (DO NOT COMMIT)
+**/config/supabase_config.dart
+**/app/config.py
+**/*config*.dart
+**/*config*.py
+*.env
+.env.*
+
 # OS
 Thumbs.db

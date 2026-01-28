@@ -25,14 +25,22 @@ class ItineraryItemRequest(BaseModel):
     end_date: date
     budget: float = Field(..., gt=0, description="Budget in currency units")
     preferences: List[PreferenceEnum] = Field(..., min_items=1, description="User preferences")
-    latitude: Optional[float] = Field(None, ge=-90, le=90)
-    longitude: Optional[float] = Field(None, ge=-180, le=180)
+    city_name: Optional[str] = Field(None, min_length=1, description="Starting city name (e.g., 'Mumbai', 'Delhi')")
+    latitude: Optional[float] = Field(None, ge=-90, le=90, description="(Deprecated) Use city_name instead")
+    longitude: Optional[float] = Field(None, ge=-180, le=180, description="(Deprecated) Use city_name instead")
     
     @validator('end_date')
     def validate_dates(cls, v, values):
         """Ensure end_date is after start_date."""
         if 'start_date' in values and v <= values['start_date']:
             raise ValueError('end_date must be after start_date')
+        return v
+    
+    @validator('city_name', 'latitude', 'longitude', pre=True)
+    def validate_location_inputs(cls, v):
+        """Strip whitespace from city name."""
+        if isinstance(v, str):
+            return v.strip()
         return v
 
 
@@ -47,6 +55,8 @@ class PlaceModel(BaseModel):
     reviews: int = Field(default=100, ge=0)
     estimated_cost: float = Field(default=0, ge=0)
     description: str = ""
+    city: Optional[str] = None
+    state: Optional[str] = None
     photo_url: Optional[str] = None
     opening_hours: Optional[str] = None
     

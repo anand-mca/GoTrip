@@ -12,6 +12,10 @@ import 'screens/profile_screen.dart';
 import 'screens/trip_detail_screen.dart';
 import 'screens/trip_planning_screen.dart';
 import 'screens/admin_dashboard_screen.dart';
+import 'screens/journey_tracking_screen.dart';
+import 'screens/travel_history_screen.dart';
+import 'screens/main_navigation_shell.dart';
+import 'screens/go_buddy_screen.dart';
 import 'config/supabase_config.dart';
 import 'services/supabase_service.dart';
 import 'providers/auth_provider.dart';
@@ -64,23 +68,31 @@ class _GoTripAppState extends State<GoTripApp> {
         theme: AppTheme.lightTheme,
         debugShowCheckedModeBanner: false,
         home: SupabaseService().getCurrentUser() != null 
-            ? const HomeScreen() 
+            ? const MainNavigationShell() 
             : const LoginScreen(),
         routes: {
           '/login': (context) => const LoginScreen(),
           '/signup': (context) => const SignupScreen(),
-          '/home': (context) => const HomeScreen(),
+          '/home': (context) => const MainNavigationShell(),
           '/explore': (context) => const ExploreScreen(),
           '/bookings': (context) => const BookingsScreen(),
           '/profile': (context) => const ProfileScreen(),
           '/plan-trip': (context) => const TripPlanningScreen(),
           '/admin': (context) => const AdminDashboardScreen(),
+          '/travel-history': (context) => const TravelHistoryScreen(),
+          '/go-buddy': (context) => const GoBuddyScreen(),
         },
         onGenerateRoute: (settings) {
           if (settings.name == '/trip-detail') {
             final argument = settings.arguments;
             return MaterialPageRoute(
               builder: (context) => TripDetailScreen(trip: argument),
+            );
+          }
+          if (settings.name == '/journey-tracking') {
+            final tripPlan = settings.arguments as Map<String, dynamic>;
+            return MaterialPageRoute(
+              builder: (context) => JourneyTrackingScreen(tripPlan: tripPlan),
             );
           }
           return null;

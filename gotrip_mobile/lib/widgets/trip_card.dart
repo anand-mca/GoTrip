@@ -105,68 +105,57 @@ class TripCard extends StatelessWidget {
               ],
             ),
             Padding(
-              padding: const EdgeInsets.all(AppSpacing.md),
+              padding: const EdgeInsets.all(AppSpacing.sm),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     title,
-                    style: Theme.of(context).textTheme.titleLarge,
+                    style: Theme.of(context).textTheme.titleSmall,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: AppSpacing.xs),
+                  const SizedBox(height: 2),
                   Row(
                     children: [
                       const Icon(
                         Icons.location_on,
-                        size: 16,
+                        size: 14,
                         color: AppColors.textSecondary,
                       ),
-                      const SizedBox(width: AppSpacing.xs),
+                      const SizedBox(width: 2),
                       Expanded(
                         child: Text(
                           location,
-                          style: Theme.of(context).textTheme.bodySmall,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 10),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: AppSpacing.md),
+                  const SizedBox(height: 4),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
+                      Row(
                         children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.star,
-                                size: 16,
-                                color: AppColors.accentLight,
-                              ),
-                              const SizedBox(width: AppSpacing.xs),
-                              Text(
-                                '$rating',
-                                style: Theme.of(context).textTheme.titleSmall,
-                              ),
-                              const SizedBox(width: AppSpacing.xs),
-                              Text(
-                                '($reviews)',
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            ],
+                          const Icon(
+                            Icons.star,
+                            size: 12,
+                            color: AppColors.accentLight,
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            '$rating',
+                            style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ],
                       ),
                       Text(
                         '₹${price.toStringAsFixed(0)}',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.primary,
                           fontWeight: FontWeight.bold,
                         ),

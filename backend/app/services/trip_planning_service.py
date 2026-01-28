@@ -11,6 +11,7 @@ from app.services.place_fetcher import PlaceFetcher
 from app.services.scoring_engine import ScoringEngine
 from app.services.route_optimizer import RouteOptimizer
 from app.services.weather_service import WeatherService
+from app.integrations.geocoding_service import get_city_coordinates
 from app.config import settings
 from app.utils.logger import get_logger
 import uuid
@@ -40,23 +41,53 @@ class TripPlanningService:
         Generate complete trip itinerary.
         
         Algorithm Overview:
-        1. Calculate trip parameters (duration, daily budget)
-        2. Fetch places matching preferences
-        3. Score places using multi-factor scoring
-        4. Select optimal set respecting budget constraints (greedy algorithm)
-        5. Distribute places across days
-        6. Optimize route within each day (nearest neighbor TSP)
-        7. Adjust for weather
-        8. Generate day-wise itinerary
+        1. Geocode city name to get center coordinates (if city_name provided)
+        2. Calculate trip parameters (duration, daily budget)
+        3. Fetch places matching preferences
+        4. Score places using multi-factor scoring
+        5. Select optimal set respecting budget constraints (greedy algorithm)
+        6. Distribute places across days
+        7. Optimize route within each day (nearest neighbor TSP)
+        8. Adjust for weather
+        9. Generate day-wise itinerary
         
         Args:
-            request: Trip planning request with dates, budget, preferences
+            request: Trip planning request with dates, budget, preferences, city_name
         
         Returns:
             TripItineraryResponse with optimized itinerary
         """
         trip_id = str(uuid.uuid4())
         logger.info(f"Starting trip planning: {trip_id}")
+        
+        # Step 0: Geocode city name to get coordinates (NEW)
+        center_lat = None
+        center_lon = None
+        geocoded_city = None
+        
+        if request.city_name:
+            try:
+                center_lat, center_lon = get_city_coordinates(request.city_name)
+                geocoded_city = request.city_name
+                logger.info(
+                    f"Geocoded city '{request.city_name}' to "
+                    f"({center_lat}, {center_lon})"
+                )
+            except ValueError as e:
+                logger.error(f"Geocoding error: {str(e)}")
+                return TripItineraryResponse(
+                    trip_id=trip_id,
+                    start_date=request.start_date,
+                    end_date=request.end_date,
+                    total_days=(request.end_date - request.start_date).days + 1,
+                    daily_itineraries=[],
+                    algorithm_explanation=f"Error: {str(e)}"
+                )
+        else:
+            # Fall back to provided coordinates or defaults
+            center_lat = request.latitude or settings.CENTER_LAT
+            center_lon = request.longitude or settings.CENTER_LON
+            logger.info(f"Using provided/default coordinates: ({center_lat}, {center_lon})")
         
         # Step 1: Calculate trip parameters
         start_date = request.start_date
@@ -66,14 +97,19 @@ class TripPlanningService:
         
         logger.info(
             f"Trip: {total_days} days, Budget: ₹{request.budget} "
-            f"(₹{daily_budget:.0f}/day), Preferences: {request.preferences}"
+            f"(₹{daily_budget:.0f}/day), Preferences: {request.preferences}, "
+            f"Center: ({center_lat}, {center_lon})"
         )
         
-        # Step 2: Fetch places
+        # Step 2: Fetch places (nearby only, within search radius)
+        # Step 2: Fetch places (nearby only, within search radius)
         places = self.place_fetcher.fetch_places_by_preferences(
             request.preferences,
             limit=settings.MAX_PLACES_PER_TRIP,
-            use_mock=settings.USE_MOCK_DATA
+            use_mock=settings.USE_MOCK_DATA,
+            center_lat=center_lat,
+            center_lon=center_lon,
+            radius_km=settings.MAX_SEARCH_RADIUS_KM
         )
         
         if not places:
@@ -87,10 +123,7 @@ class TripPlanningService:
                 algorithm_explanation="No places found for the given preferences."
             )
         
-        # Step 3: Score and rank places
-        center_lat = request.latitude or settings.CENTER_LAT
-        center_lon = request.longitude or settings.CENTER_LON
-        
+        # Step 3: Score and rank places (using geocoded coordinates)
         scored_places = self.scoring_engine.score_and_rank_places(
             places, request.preferences, center_lat, center_lon
         )
@@ -118,7 +151,7 @@ class TripPlanningService:
         
         # Generate algorithm explanation
         explanation = self._generate_explanation(
-            total_days, len(selected_places), len(places)
+            total_days, len(selected_places), len(places), geocoded_city
         )
         
         logger.info(
@@ -264,16 +297,18 @@ class TripPlanningService:
         return daily_itineraries
     
     @staticmethod
-    def _generate_explanation(total_days: int, selected_count: int, total_count: int) -> str:
+    def _generate_explanation(total_days: int, selected_count: int, total_count: int, geocoded_city: str = None) -> str:
         """Generate explanation of the algorithm used."""
+        city_info = f" starting from {geocoded_city}" if geocoded_city else ""
         return (
-            f"Trip Plan Algorithm:\n"
-            f"1. Scoring: Evaluated {total_count} places using multi-factor scoring "
-            f"(Rating×0.3 + Preferences×0.4 + Popularity×0.1 + Distance×0.2)\n"
-            f"2. Selection: Selected {selected_count} places using greedy algorithm "
+            f"Trip Plan Algorithm{city_info}:\n"
+            f"1. Geocoding: Converted city name to coordinates using OSM Nominatim API\n"
+            f"2. Scoring: Evaluated {total_count} places using multi-factor scoring "
+            f"(Rating×0.1 + Preferences×0.4 + Distance×0.4 + Popularity×0.1)\n"
+            f"3. Selection: Selected {selected_count} places using greedy algorithm "
             f"respecting budget and time constraints\n"
-            f"3. Distribution: Distributed across {total_days} days using round-robin\n"
-            f"4. Optimization: Optimized visiting order per day using Nearest Neighbor algorithm "
+            f"4. Distribution: Distributed across {total_days} days using round-robin\n"
+            f"5. Optimization: Optimized visiting order per day using Nearest Neighbor algorithm "
             f"(TSP approximation)\n"
-            f"5. Feasibility: All selections verified for budget and time constraints"
+            f"6. Feasibility: All selections verified for budget and time constraints"
         )

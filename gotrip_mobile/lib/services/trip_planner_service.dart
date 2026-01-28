@@ -187,7 +187,7 @@ class TripPlannerService {
         };
       }
 
-      // Create daily itinerary (simple distribution)
+      // Create daily itinerary with distance calculation
       List<Map<String, dynamic>> dailyItinerary = [];
       int destsPerDay = (selectedDestinations.length / duration).ceil();
       
@@ -196,10 +196,25 @@ class TripPlannerService {
         final endIdx = min((day + 1) * destsPerDay, selectedDestinations.length);
         
         if (startIdx < selectedDestinations.length) {
+          final dayDestinations = selectedDestinations.sublist(startIdx, endIdx);
+          
+          // Calculate distance traveled on this day
+          double dayDistance = 0;
+          for (int i = 0; i < dayDestinations.length - 1; i++) {
+            final dest1 = dayDestinations[i];
+            final dest2 = dayDestinations[i + 1];
+            final lat1 = (dest1['latitude'] as num).toDouble();
+            final lng1 = (dest1['longitude'] as num).toDouble();
+            final lat2 = (dest2['latitude'] as num).toDouble();
+            final lng2 = (dest2['longitude'] as num).toDouble();
+            dayDistance += _calculateDistance(lat1, lng1, lat2, lng2);
+          }
+          
           dailyItinerary.add({
             'day': day + 1,
             'date': start.add(Duration(days: day)).toIso8601String(),
-            'destinations': selectedDestinations.sublist(startIdx, endIdx),
+            'destinations': dayDestinations,
+            'total_distance': dayDistance,
           });
         }
       }

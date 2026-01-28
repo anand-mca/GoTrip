@@ -210,8 +210,60 @@ class APIService {
     }
   }
 
-  /// Plan optimized trip with travel calculations
-  /// This is the main endpoint for intelligent trip planning
+  /// Plan trip using city name (NEW - with automatic geocoding)
+  /// The backend will automatically convert city name to coordinates
+  /// This is the new recommended method
+  static Future<Map<String, dynamic>> planTripByCity({
+    required String cityName,           // e.g., "Goa", "Mumbai", "Delhi"
+    required List<String> preferences,  // e.g., ["beach", "food", "adventure"]
+    required double budget,              // Total trip budget
+    required String startDate,           // ISO format: "2026-02-01"
+    required String endDate,             // ISO format: "2026-02-05"
+  }) async {
+    try {
+      final requestBody = {
+        'city_name': cityName,
+        'preferences': preferences,
+        'budget': budget,
+        'start_date': startDate,
+        'end_date': endDate,
+      };
+
+      print('Sending trip planning request with city: $cityName');
+      print('Request body: $requestBody');
+
+      final response = await http.post(
+        Uri.parse('$_baseUrl/plan-trip'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(requestBody),
+      ).timeout(
+        const Duration(seconds: 90),
+        onTimeout: () => throw Exception('Trip planning timeout'),
+      );
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        final errorBody = jsonDecode(response.body);
+        throw Exception(
+          'Trip planning failed (${response.statusCode}): '
+          '${errorBody['error'] ?? errorBody['detail'] ?? 'Unknown error'}'
+        );
+      }
+    } on http.ClientException catch (e) {
+      throw Exception('Network error: Could not reach backend at $_baseUrl. Is it running?\nError: $e');
+    } catch (e) {
+      print('Error in planTripByCity: $e');
+      rethrow;
+    }
+  }
+
+  /// Plan optimized trip with travel calculations (OLD - using coordinates)
+  /// DEPRECATED: Use planTripByCity() instead
+  /// This method still works but requires manual lat/lon input
   /// Returns: {success, message, plan: {destinations, total_cost, route_segments, daily_itinerary}}
   static Future<Map<String, dynamic>> planOptimizedTrip({
     required Map<String, dynamic> startLocation, // {name, lat, lng}

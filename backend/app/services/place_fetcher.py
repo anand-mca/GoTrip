@@ -1,10 +1,12 @@
 """
 Place fetcher that aggregates places from multiple sources.
-Currently implements mock data fallback; can be extended for real APIs.
+Primary: Supabase database, Fallback: Mock data for testing.
 """
 from typing import List, Optional
+import sys
 from app.models.schemas import PlaceModel, PreferenceEnum
 from app.integrations.mock_data import get_mock_places
+from app.integrations.supabase_service import fetch_destinations_from_supabase
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -19,7 +21,10 @@ class PlaceFetcher:
     def fetch_places_by_preferences(
         preferences: List[PreferenceEnum],
         limit: int = 50,
-        use_mock: bool = True
+        use_mock: bool = False,
+        center_lat: Optional[float] = None,
+        center_lon: Optional[float] = None,
+        radius_km: float = 500
     ) -> List[PlaceModel]:
         """
         Fetch places matching user preferences.
@@ -27,22 +32,49 @@ class PlaceFetcher:
         Args:
             preferences: List of preferred place categories
             limit: Maximum number of places to return
-            use_mock: Whether to use mock data (True for testing)
+            use_mock: Whether to use mock data (False for production with Supabase)
+            center_lat, center_lon: Center location for distance calculation
+            radius_km: Search radius in kilometers
         
         Returns:
             List of PlaceModel instances
         """
+        print(f"\n{'='*80}")
+        print(f"🔍 PLACE_FETCHER START: preferences={[p.value for p in preferences]}, use_mock={use_mock}")
+        print(f"   radius={radius_km}km, center=({center_lat}, {center_lon})")
+        print(f"{'='*80}", flush=True)
+        sys.stdout.flush()
+        
         logger.info(f"Fetching places for preferences: {preferences}")
         
         if use_mock:
+            print(f"⚠️  USE_MOCK_DATA is TRUE - skipping Supabase, going straight to mock!", flush=True)
+            sys.stdout.flush()
             return PlaceFetcher._fetch_from_mock(preferences, limit)
         
-        # TODO: Implement real API calls
-        # 1. Google Places API
-        # 2. OpenStreetMap Nominatim
-        # 3. Fall back to mock data
+        # Try Supabase first
+        print(f"\n📡 Attempting Supabase fetch...", flush=True)
+        sys.stdout.flush()
+        places = fetch_destinations_from_supabase(
+            preferences=[p.value for p in preferences],
+            limit=limit,
+            center_lat=center_lat,
+            center_lon=center_lon,
+            radius_km=radius_km
+        )
         
-        logger.warning("No real API implementation. Using mock data fallback.")
+        print(f"📦 Supabase returned: {len(places) if places else 0} places", flush=True)
+        sys.stdout.flush()
+        
+        if places:
+            print(f"✅ Using Supabase data: {[p.name for p in places[:3]]}", flush=True)
+            sys.stdout.flush()
+            return places
+        
+        # Fall back to mock data
+        print(f"\n⚠️  FALLBACK: Supabase returned empty. Using MOCK data!", flush=True)
+        print(f"⚠️  Preferences: {[p.value for p in preferences]}", flush=True)
+        sys.stdout.flush()
         return PlaceFetcher._fetch_from_mock(preferences, limit)
     
     @staticmethod

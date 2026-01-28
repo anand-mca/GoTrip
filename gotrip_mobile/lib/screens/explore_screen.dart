@@ -18,7 +18,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   String _selectedCategory = 'All';
   String _selectedDifficulty = 'All';
 
-  final List<String> _difficulties = ['All', 'easy', 'moderate', 'hard'];
+  final List<String> _difficulties = ['All', 'easy', 'moderate', 'hard']; 
 
   @override
   void initState() {

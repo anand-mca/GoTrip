@@ -82,7 +82,7 @@ class Destination {
       image: imageUrl,
       rating: (json['rating'] ?? 0.0).toDouble(),
       reviews: json['reviews'] ?? 0,
-      price: (json['cost_per_day'] ?? json['price'] ?? 1500).toDouble(),
+      price: (json['entry_fee'] ?? json['cost_per_day'] ?? json['price'] ?? 1500).toDouble(),
       duration: parsedDuration,
       difficulty: json['difficulty'] ?? 'Easy',
       highlights: _parseList(json['nearby_attractions']),

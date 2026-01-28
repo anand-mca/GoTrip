@@ -4,18 +4,43 @@ import '../utils/app_constants.dart';
 import '../widgets/trip_card.dart';
 import '../models/destination_model.dart';
 import '../providers/destination_provider.dart';
+import '../services/journey_service.dart';
+import 'journey_tracking_screen.dart';
+import 'travel_history_screen.dart';
+import 'profile_screen.dart';
+import 'main_navigation_shell.dart';
 
-class HomeScreen extends StatefulWidget {
+// Original HomeScreen - redirects to MainNavigationShell
+class HomeScreen extends StatelessWidget {
   const HomeScreen({Key? key}) : super(key: key);
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  Widget build(BuildContext context) {
+    return const MainNavigationShell();
+  }
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  int _currentIndex = 0;
+// Content-only screen for use inside the navigation shell
+class HomeContentScreen extends StatefulWidget {
+  final Map<String, dynamic>? activeTrip;
+  final VoidCallback? onActiveTripChanged;
+  
+  const HomeContentScreen({
+    Key? key,
+    this.activeTrip,
+    this.onActiveTripChanged,
+  }) : super(key: key);
+
+  @override
+  State<HomeContentScreen> createState() => _HomeContentScreenState();
+}
+
+class _HomeContentScreenState extends State<HomeContentScreen> {
   final List<String> savedTrips = [];
   bool _dataLoaded = false;
+  
+  // Journey tracking
+  final JourneyService _journeyService = JourneyService();
 
   @override
   void initState() {
@@ -107,17 +132,51 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         Row(
                           children: [
-                            // Profile Button
-                            Container(
-                              padding: const EdgeInsets.all(AppSpacing.sm),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
-                                shape: BoxShape.circle,
+                            // History Button
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const TravelHistoryScreen(),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(AppSpacing.sm),
+                                margin: const EdgeInsets.only(right: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.history,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
                               ),
-                              child: const Icon(
-                                Icons.person,
-                                color: Colors.white,
-                                size: 24,
+                            ),
+                            // Profile Button
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const ProfileScreen(),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(AppSpacing.sm),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.person,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
                               ),
                             ),
                           ],
@@ -128,6 +187,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
+            
+            // Active Journey Banner
+            if (widget.activeTrip != null) ...[
+              _buildActiveJourneyBanner(),
+            ],
+            
             // Featured Trips Section
             Padding(
               padding: const EdgeInsets.all(AppSpacing.lg),
@@ -278,43 +343,235 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: AppSpacing.xl),
+            const SizedBox(height: AppSpacing.xl + 80), // Extra padding for bottom nav
           ],
         ),
       ),
-      // Bottom Navigation
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        type: BottomNavigationBarType.fixed,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-          // Handle navigation
-          if (index == 1) Navigator.pushNamed(context, '/explore');
-          if (index == 2) Navigator.pushNamed(context, '/plan-trip');
-          if (index == 3) Navigator.pushNamed(context, '/profile');
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
+    );
+  }
+
+  Widget _buildActiveJourneyBanner() {
+    final tripName = widget.activeTrip!['trip_name'] ?? 'Your Trip';
+    final startCity = widget.activeTrip!['start_city'] ?? 'Unknown';
+    
+    // Calculate progress
+    final tripDays = widget.activeTrip!['trip_days'] as List? ?? [];
+    int totalDestinations = 0;
+    int visitedDestinations = 0;
+    
+    for (var day in tripDays) {
+      final destinations = day['trip_destinations'] as List? ?? [];
+      totalDestinations += destinations.length;
+      visitedDestinations += destinations.where((d) => d['is_visited'] == true).length;
+    }
+    
+    final progress = totalDestinations > 0 ? visitedDestinations / totalDestinations : 0.0;
+
+    return Container(
+      margin: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.green.shade400, Colors.teal.shade500],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.green.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.explore),
-            label: 'Explore',
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: _navigateToActiveJourney,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.directions_walk,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '🚀 Active Journey',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            tripName,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Progress Bar
+                Row(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 8,
+                          backgroundColor: Colors.white.withOpacity(0.3),
+                          valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      '${(progress * 100).toInt()}%',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '$visitedDestinations of $totalDestinations destinations visited',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.9),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.map),
-            label: 'Plan Trip',
+        ),
+      ),
+    );
+  }
+
+  void _navigateToActiveJourney() {
+    if (widget.activeTrip == null) return;
+    
+    // Convert DB format to app format
+    final tripPlan = _journeyService.convertDbTripToAppFormat(widget.activeTrip!);
+    
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => JourneyTrackingScreen(
+          tripPlan: tripPlan,
+          fromDatabase: true,
+        ),
+      ),
+    ).then((_) {
+      // Refresh active trip when returning
+      widget.onActiveTripChanged?.call();
+    });
+  }
+
+  void _showActiveTripDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Active Trip Exists'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'You already have an active journey in progress!',
+              style: TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.map, color: Colors.blue.shade700),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      widget.activeTrip!['trip_name'] ?? 'Your Trip',
+                      style: TextStyle(
+                        color: Colors.blue.shade700,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Please end your current journey before planning a new trip.',
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              _navigateToActiveJourney();
+            },
+            icon: const Icon(Icons.directions_walk, size: 18),
+            label: const Text('Continue Journey'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
           ),
         ],
       ),
     );
   }
-
 }

@@ -27,8 +27,9 @@ async def plan_trip(request: ItineraryItemRequest) -> TripItineraryResponse:
     - `end_date`: Trip end date (YYYY-MM-DD)
     - `budget`: Total trip budget in currency units
     - `preferences`: List of preferred place categories (beach, history, adventure, food, shopping, nature, religious, cultural)
-    - `latitude`: (Optional) Center latitude for location-based filtering
-    - `longitude`: (Optional) Center longitude for location-based filtering
+    - `city_name`: (NEW) Starting city name (e.g., "Mumbai", "Delhi", "Goa"). Coordinates auto-fetched from OSM Nominatim API
+    - `latitude`: (DEPRECATED) Use city_name instead. Center latitude for location-based filtering
+    - `longitude`: (DEPRECATED) Use city_name instead. Center longitude for location-based filtering
     
     **Response:**
     - `trip_id`: Unique identifier for the planned trip
@@ -38,17 +39,28 @@ async def plan_trip(request: ItineraryItemRequest) -> TripItineraryResponse:
     - `total_distance`: Total travel distance in kilometers
     - `total_estimated_cost`: Total estimated cost for the trip
     - `daily_itineraries`: List of day-wise itineraries with places and metrics
-    - `algorithm_explanation`: Detailed explanation of the planning algorithm
+    - `algorithm_explanation`: Detailed explanation of the planning algorithm including geocoding
     
-    **Example Request:**
+    **Example Request (NEW - Using City Name):**
     ```json
     {
         "start_date": "2026-02-01",
         "end_date": "2026-02-05",
         "budget": 50000,
         "preferences": ["beach", "food", "adventure"],
-        "latitude": 28.6139,
-        "longitude": 77.2090
+        "city_name": "Goa"
+    }
+    ```
+    
+    **Example Request (OLD - Using Coordinates):**
+    ```json
+    {
+        "start_date": "2026-02-01",
+        "end_date": "2026-02-05",
+        "budget": 50000,
+        "preferences": ["beach", "food", "adventure"],
+        "latitude": 15.2993,
+        "longitude": 73.8243
     }
     ```
     
@@ -83,9 +95,15 @@ async def plan_trip(request: ItineraryItemRequest) -> TripItineraryResponse:
                 "estimated_budget": 9850
             }
         ],
-        "algorithm_explanation": "Trip Plan Algorithm: ..."
+        "algorithm_explanation": "Trip Plan Algorithm starting from Goa: ..."
     }
     ```
+    
+    **Geocoding Details:**
+    - If `city_name` is provided, it will be converted to coordinates automatically
+    - Fallback list includes: Mumbai, Delhi, Bangalore, Goa, Jaipur, Agra, Varanasi, and 40+ more Indian cities
+    - For unlisted cities, OSM Nominatim API is queried (free, no API key needed)
+    - If city not found, returns 400 error with geocoding details
     """
     try:
         logger.info(f"Received trip planning request: {request}")
