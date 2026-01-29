@@ -198,38 +198,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 onPressed: _handleLogin,
                               ),
                             ),
-                            const SizedBox(height: AppSpacing.lg),
-                            // Divider
-                            Row(
-                              children: [
-                                Expanded(child: Container(height: 1, color: AppColors.border)),
-                                const Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                                  child: Text('or continue with', style: TextStyle(color: AppColors.textSecondary)),
-                                ),
-                                Expanded(child: Container(height: 1, color: AppColors.border)),
-                              ],
-                            ),
-                            const SizedBox(height: AppSpacing.lg),
-                            // Social Login
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: OutlinedButton(
-                                    onPressed: () {},
-                                    child: const Icon(Icons.g_mobiledata, size: 24),
-                                  ),
-                                ),
-                                const SizedBox(width: AppSpacing.md),
-                                Expanded(
-                                  child: OutlinedButton(
-                                    onPressed: () {},
-                                    child: const Icon(Icons.apple, size: 24),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: AppSpacing.lg),
+                            const SizedBox(height: AppSpacing.xl),
                             // Sign Up Link
                             Center(
                               child: Row(

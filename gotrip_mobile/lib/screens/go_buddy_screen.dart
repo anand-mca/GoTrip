@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import '../services/destination_classifier.dart';
 
 class GoBuddyScreen extends StatefulWidget {
   const GoBuddyScreen({Key? key}) : super(key: key);
@@ -13,17 +14,39 @@ class _GoBuddyScreenState extends State<GoBuddyScreen> {
   final List<ChatMessage> _messages = [];
   final ScrollController _scrollController = ScrollController();
   final ImagePicker _picker = ImagePicker();
+  final DestinationClassifier _classifier = DestinationClassifier.instance;
   bool _isLoading = false;
+  bool _isClassifierReady = false;
 
   @override
   void initState() {
     super.initState();
+    _initializeClassifier();
     // Add welcome message
     _messages.add(ChatMessage(
       isUser: false,
-      text: "Hey there, traveler! 👋 I'm GoBuddy, your friendly travel companion!\n\nSnap a photo of any place you're visiting, and I'll tell you all about it - its history, interesting facts, and hidden gems nearby!\n\nTap the camera button below to get started! 📸",
+      text: "Hey there, traveler! 👋 I'm GoBuddy, your friendly travel companion!\n\nSnap a photo of any famous Indian monument or landmark, and I'll identify it for you!\n\nI can recognize 24 famous destinations including:\n🏛️ Taj Mahal, Gateway of India, Qutub Minar\n🕌 Hawa Mahal, Charminar, Golden Temple\n🏰 Mysore Palace, Victoria Memorial\n...and many more!\n\nTap the camera button below to get started! 📸",
       timestamp: DateTime.now(),
     ));
+  }
+
+  Future<void> _initializeClassifier() async {
+    try {
+      await _classifier.initialize();
+      setState(() {
+        _isClassifierReady = true;
+      });
+      print('✅ Classifier ready!');
+    } catch (e) {
+      print('❌ Failed to initialize classifier: $e');
+      setState(() {
+        _messages.add(ChatMessage(
+          isUser: false,
+          text: "⚠️ I'm having trouble loading my recognition model. Please make sure the model file is properly set up.",
+          timestamp: DateTime.now(),
+        ));
+      });
+    }
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -47,32 +70,109 @@ class _GoBuddyScreenState extends State<GoBuddyScreen> {
 
         _scrollToBottom();
 
-        // Simulate AI response (will be replaced with actual API call later)
-        await Future.delayed(const Duration(seconds: 2));
+        // Classify the image using TFLite model
+        await _classifyImage(File(image.path));
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error picking image: $e')),
+      );
+    }
+  }
 
+  Future<void> _classifyImage(File imageFile) async {
+    try {
+      if (!_isClassifierReady) {
         setState(() {
           _isLoading = false;
           _messages.add(ChatMessage(
             isUser: false,
-            text: "🔍 Analyzing your photo...\n\n"
-                "I can see this is a beautiful location! "
-                "Once I'm fully connected to the AI service, I'll be able to tell you:\n\n"
-                "• The name and history of this place\n"
-                "• Interesting facts and stories\n"
-                "• Best times to visit\n"
-                "• Nearby attractions\n"
-                "• Local food recommendations\n\n"
-                "Stay tuned for the full experience! 🌟",
+            text: "⚠️ The recognition model is still loading. Please try again in a moment.",
             timestamp: DateTime.now(),
           ));
         });
-
-        _scrollToBottom();
+        return;
       }
+
+      // Run classification
+      final result = await _classifier.classifyImage(imageFile);
+      
+      setState(() {
+        _isLoading = false;
+        
+        // Handle web platform fallback
+        if (result.isWebFallback) {
+          _messages.add(ChatMessage(
+            isUser: false,
+            text: "🌐 **Web Browser Detected**\n\n"
+                "The image recognition feature requires a mobile device (Android/iOS) to work.\n\n"
+                "📱 To use GoBuddy's full capabilities:\n"
+                "• Run the app on an Android device or emulator\n"
+                "• Run the app on an iOS device or simulator\n\n"
+                "The TFLite model can only run on native mobile platforms.\n\n"
+                "💡 _Coming soon: Web support with TensorFlow.js!_",
+            timestamp: DateTime.now(),
+          ));
+          return;
+        }
+        
+        if (result.isConfident(threshold: 0.3)) {
+          // Confident prediction
+          final destination = result.topPredictions[0].displayLabel;
+          final confidence = result.topPredictions[0].confidencePercent;
+          
+          String responseText = "🎯 **I recognize this place!**\n\n"
+              "📍 **${destination}**\n"
+              "🎯 Confidence: $confidence\n\n";
+          
+          // Add top 3 predictions if there are alternatives
+          if (result.topPredictions.length > 1) {
+            responseText += "Other possibilities:\n";
+            for (int i = 1; i < result.topPredictions.length && i < 3; i++) {
+              responseText += "• ${result.topPredictions[i].displayLabel} (${result.topPredictions[i].confidencePercent})\n";
+            }
+            responseText += "\n";
+          }
+          
+          responseText += "💡 _Coming soon: Detailed history, facts, and nearby attractions powered by AI!_";
+          
+          _messages.add(ChatMessage(
+            isUser: false,
+            text: responseText,
+            timestamp: DateTime.now(),
+            recognizedDestination: destination,
+          ));
+        } else {
+          // Low confidence
+          _messages.add(ChatMessage(
+            isUser: false,
+            text: "🤔 I'm not quite sure about this one...\n\n"
+                "My best guess is **${result.topPredictions[0].displayLabel}** "
+                "(${result.topPredictions[0].confidencePercent} confidence)\n\n"
+                "Tips for better results:\n"
+                "• Make sure the landmark is clearly visible\n"
+                "• Try taking the photo from a different angle\n"
+                "• Ensure good lighting\n\n"
+                "I can recognize famous Indian monuments like Taj Mahal, Gateway of India, Qutub Minar, and more!",
+            timestamp: DateTime.now(),
+          ));
+        }
+      });
+
+      _scrollToBottom();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error picking image: $e')),
-      );
+      setState(() {
+        _isLoading = false;
+        _messages.add(ChatMessage(
+          isUser: false,
+          text: "❌ Sorry, I encountered an error while analyzing the image.\n\nError: $e\n\nPlease try again with a different image.",
+          timestamp: DateTime.now(),
+        ));
+      });
+      _scrollToBottom();
     }
   }
 
@@ -459,11 +559,13 @@ class ChatMessage {
   final String? text;
   final String? imagePath;
   final DateTime timestamp;
+  final String? recognizedDestination;
 
   ChatMessage({
     required this.isUser,
     this.text,
     this.imagePath,
     required this.timestamp,
+    this.recognizedDestination,
   });
 }

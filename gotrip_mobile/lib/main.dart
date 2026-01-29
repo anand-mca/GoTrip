@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import 'utils/app_theme.dart';
 import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
-import 'screens/home_screen.dart';
 import 'screens/explore_screen.dart';
 import 'screens/bookings_screen.dart';
 import 'screens/profile_screen.dart';

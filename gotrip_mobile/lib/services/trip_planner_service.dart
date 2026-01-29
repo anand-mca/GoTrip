@@ -69,7 +69,7 @@ class TripPlannerService {
 
       final response = await query.limit(100);
       
-      if (response == null || (response as List).isEmpty) {
+      if ((response as List).isEmpty) {
         return {
           'success': false,
           'message': 'No destinations found matching your preferences',
@@ -78,7 +78,7 @@ class TripPlannerService {
       }
 
       List<Map<String, dynamic>> allDestinations = response
-          .map((e) => e as Map<String, dynamic>)
+          .map((e) => e)
           .toList();
 
       print('✅ Found ${allDestinations.length} destinations');
@@ -272,8 +272,6 @@ class TripPlannerService {
       }
 
       final response = await query.limit(100);
-      
-      if (response == null) return [];
 
       List<Map<String, dynamic>> destinations = (response as List)
           .map((e) => e as Map<String, dynamic>)
@@ -337,8 +335,6 @@ class TripPlannerService {
       }
 
       final response = await query.limit(limit);
-      
-      if (response == null) return [];
 
       return (response as List)
           .map((e) => e as Map<String, dynamic>)
@@ -356,8 +352,6 @@ class TripPlannerService {
           .from('destinations')
           .select('city')
           .eq('is_active', true);
-
-      if (response == null) return [];
 
       final cities = (response as List)
           .map((e) => e['city'] as String)
@@ -379,8 +373,6 @@ class TripPlannerService {
           .from('destinations')
           .select('state')
           .eq('is_active', true);
-
-      if (response == null) return [];
 
       final states = (response as List)
           .map((e) => e['state'] as String)

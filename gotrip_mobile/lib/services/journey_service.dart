@@ -26,7 +26,7 @@ class JourneyService {
             )
           ''')
           .eq('user_id', _userId!)
-          .in_('status', ['planned', 'in_progress'])
+          .inFilter('status', ['planned', 'in_progress'])
           .order('created_at', ascending: false)
           .limit(1)
           .maybeSingle();

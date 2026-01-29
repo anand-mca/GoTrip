@@ -114,6 +114,16 @@ app.*.map.json
 **/*config*.py
 *.env
 .env.*
+**/lib/config/*.dart
+**/lib/constants/api_keys.dart
+**/*api_key*.dart
+**/*secret*.dart
+**/*credentials*.json
+**/*firebase*.json
+**/google-services.json
+**/*supabase*.json
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
 
 # OS
 Thumbs.db
