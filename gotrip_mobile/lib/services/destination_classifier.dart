@@ -65,7 +65,7 @@ class DestinationClassifier {
       }
       
       // Load the model from the cache path
-      _interpreter = await Interpreter.fromFile(modelPath.path);
+      _interpreter = await Interpreter.fromFile(modelPath);
       print('✅ Model loaded successfully!');
       
       // Load labels

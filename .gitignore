@@ -10,6 +10,10 @@
 .svn/
 migrate_working_dir/
 
+# Large model files (exceeding GitHub's 100MB limit)
+*.tflite
+gotrip_mobile/assets/models/destination_model.tflite
+
 # IntelliJ related
 *.iml
 *.ipr
