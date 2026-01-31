@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/journey_service.dart';
+import '../services/location_services.dart';
 
 class JourneyTrackingScreen extends StatefulWidget {
   final Map<String, dynamic> tripPlan;
@@ -17,6 +18,7 @@ class JourneyTrackingScreen extends StatefulWidget {
 
 class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
   final JourneyService _journeyService = JourneyService();
+  final LocationServices _locationServices = LocationServices();
   
   // Track visited destinations - Map<dayIndex, Set<destinationIndex>>
   Map<int, Set<int>> visitedDestinations = {};
@@ -26,6 +28,9 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
   
   // Store destination IDs from database for updating
   Map<int, Map<int, String>> destinationDbIds = {}; // dayIndex -> destIndex -> dbId
+  
+  // Cache for location data (weather, restaurants, hotels, attractions)
+  Map<String, _ExpandedSectionData> _expandedDataCache = {};
   
   bool _isLoading = false;
 
@@ -63,6 +68,16 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
     final wasVisited = visitedDestinations[dayIndex]!.contains(destIndex);
     final newVisitedState = !wasVisited;
     
+    // Get place data for fetching location info
+    final dailyItineraries = widget.tripPlan['daily_itineraries'] as List? ?? [];
+    Map<String, dynamic>? place;
+    if (dayIndex < dailyItineraries.length) {
+      final places = dailyItineraries[dayIndex]['destinations'] as List? ?? [];
+      if (destIndex < places.length) {
+        place = places[destIndex] as Map<String, dynamic>?;
+      }
+    }
+    
     // Update UI immediately
     setState(() {
       if (wasVisited) {
@@ -77,6 +92,11 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
         expandedDestinationIndex = destIndex;
       }
     });
+
+    // Fetch location data if marking as visited
+    if (newVisitedState && place != null) {
+      _fetchLocationData(place, dayIndex, destIndex);
+    }
 
     // Update in database
     final destDbId = destinationDbIds[dayIndex]?[destIndex];
@@ -98,6 +118,89 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
             SnackBar(content: Text('Failed to update: $e'), backgroundColor: Colors.red),
           );
         }
+      }
+    }
+  }
+
+  /// Fetch weather, restaurants, hotels, and attractions data for a place
+  Future<void> _fetchLocationData(Map<String, dynamic> place, int dayIndex, int destIndex) async {
+    final cacheKey = '${dayIndex}_$destIndex';
+    
+    // Check if already fetched
+    if (_expandedDataCache.containsKey(cacheKey) && 
+        _expandedDataCache[cacheKey]!.isLoaded) {
+      return;
+    }
+    
+    // Initialize with loading state
+    setState(() {
+      _expandedDataCache[cacheKey] = _ExpandedSectionData(isLoading: true);
+    });
+
+    try {
+      // Get coordinates - first try from place data, then geocode
+      double? latitude = place['latitude']?.toDouble();
+      double? longitude = place['longitude']?.toDouble();
+      
+      if (latitude == null || longitude == null || latitude == 0 || longitude == 0) {
+        // Geocode using place name
+        final placeName = place['name'] ?? '';
+        final city = place['city'] ?? '';
+        final state = place['state'] ?? '';
+        
+        final coords = await _locationServices.getCoordinates(
+          placeName, 
+          city: city, 
+          state: state,
+        );
+        
+        if (coords != null) {
+          latitude = coords['latitude'];
+          longitude = coords['longitude'];
+        }
+      }
+      
+      if (latitude == null || longitude == null) {
+        setState(() {
+          _expandedDataCache[cacheKey] = _ExpandedSectionData(
+            isLoading: false,
+            isLoaded: true,
+            error: 'Could not find location coordinates',
+          );
+        });
+        return;
+      }
+
+      // Fetch all data in parallel
+      final results = await Future.wait([
+        _locationServices.getWeatherAlert(latitude, longitude),
+        _locationServices.getNearbyRestaurants(latitude, longitude),
+        _locationServices.getNearbyHotels(latitude, longitude),
+        _locationServices.getNearbyAttractions(latitude, longitude),
+      ]);
+
+      if (mounted) {
+        setState(() {
+          _expandedDataCache[cacheKey] = _ExpandedSectionData(
+            isLoading: false,
+            isLoaded: true,
+            weather: results[0] as WeatherAlert,
+            restaurants: results[1] as List<Restaurant>,
+            hotels: results[2] as List<Hotel>,
+            attractions: results[3] as List<Attraction>,
+          );
+        });
+      }
+    } catch (e) {
+      print('Error fetching location data: $e');
+      if (mounted) {
+        setState(() {
+          _expandedDataCache[cacheKey] = _ExpandedSectionData(
+            isLoading: false,
+            isLoaded: true,
+            error: 'Failed to fetch nearby places',
+          );
+        });
       }
     }
   }
@@ -605,7 +708,7 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
                     // Expandable section
                     AnimatedCrossFade(
                       firstChild: const SizedBox.shrink(),
-                      secondChild: _buildExpandedSection(place),
+                      secondChild: _buildExpandedSection(place, dayIndex, destIndex),
                       crossFadeState: isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
                       duration: const Duration(milliseconds: 300),
                     ),
@@ -619,7 +722,10 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
     );
   }
 
-  Widget _buildExpandedSection(Map<String, dynamic> place) {
+  Widget _buildExpandedSection(Map<String, dynamic> place, int dayIndex, int destIndex) {
+    final cacheKey = '${dayIndex}_$destIndex';
+    final data = _expandedDataCache[cacheKey];
+    
     return Container(
       margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.all(12),
@@ -635,29 +741,371 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
             icon: Icons.cloud,
             iconColor: Colors.blue,
             title: 'Weather Alert',
-            content: _buildPlaceholderContent('Weather information will be displayed here', Icons.wb_sunny),
+            content: _buildWeatherSection(data),
           ),
           const Divider(height: 24),
           _buildInfoSection(
             icon: Icons.restaurant,
             iconColor: Colors.orange,
             title: 'Nearby Restaurants',
-            content: _buildPlaceholderContent('Restaurant recommendations will appear here', Icons.restaurant_menu),
+            content: _buildRestaurantsSection(data),
           ),
           const Divider(height: 24),
           _buildInfoSection(
             icon: Icons.hotel,
             iconColor: Colors.purple,
             title: 'Accommodation',
-            content: _buildPlaceholderContent('Nearby hotels and rooms will be shown here', Icons.bed),
+            content: _buildHotelsSection(data),
           ),
           const Divider(height: 24),
           _buildInfoSection(
             icon: Icons.attractions,
             iconColor: Colors.green,
             title: 'Nearby Attractions',
-            content: _buildNearbyAttractions(place),
+            content: _buildAttractionsSection(data),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWeatherSection(_ExpandedSectionData? data) {
+    if (data == null || data.isLoading) {
+      return _buildLoadingContent('Fetching weather data...');
+    }
+    
+    if (data.error != null || data.weather == null) {
+      return _buildErrorContent('Weather data unavailable');
+    }
+    
+    final weather = data.weather!;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: weather.alertColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: weather.alertColor.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(weather.icon, style: const TextStyle(fontSize: 24)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  weather.alertType == AlertType.safe ? 'Great Weather!' : 'Weather Alert',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: weather.alertColor,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            weather.message,
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade700, height: 1.4),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRestaurantsSection(_ExpandedSectionData? data) {
+    if (data == null || data.isLoading) {
+      return _buildLoadingContent('Finding nearby restaurants...');
+    }
+    
+    if (data.error != null) {
+      return _buildErrorContent('Could not find restaurants');
+    }
+    
+    final restaurants = data.restaurants ?? [];
+    if (restaurants.isEmpty) {
+      return _buildEmptyContent('No restaurants found nearby', Icons.restaurant_menu);
+    }
+    
+    return Column(
+      children: restaurants.map((restaurant) => Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: restaurant.isVegetarian ? Colors.green.shade50 : Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(
+                Icons.restaurant,
+                color: restaurant.isVegetarian ? Colors.green : Colors.orange,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          restaurant.name,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: restaurant.isVegetarian ? Colors.green : Colors.red.shade400,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          restaurant.isVegetarian ? 'VEG' : 'NON-VEG',
+                          style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${restaurant.cuisine} • ${restaurant.distanceText}',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  ),
+                  if (restaurant.rating != null) ...[
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Icon(Icons.star, color: Colors.amber, size: 12),
+                        Text(' ${restaurant.rating!.toStringAsFixed(1)}', 
+                          style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      )).toList(),
+    );
+  }
+
+  Widget _buildHotelsSection(_ExpandedSectionData? data) {
+    if (data == null || data.isLoading) {
+      return _buildLoadingContent('Finding nearby accommodations...');
+    }
+    
+    if (data.error != null) {
+      return _buildErrorContent('Could not find accommodations');
+    }
+    
+    final hotels = data.hotels ?? [];
+    if (hotels.isEmpty) {
+      return _buildEmptyContent('No accommodations found nearby', Icons.hotel);
+    }
+    
+    return Column(
+      children: hotels.map((hotel) => Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.purple.shade50,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(
+                hotel.type == 'Hostel' ? Icons.business : 
+                hotel.type == 'Homestay' ? Icons.home : Icons.hotel,
+                color: Colors.purple,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    hotel.name,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.purple.shade100,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          hotel.type,
+                          style: TextStyle(fontSize: 9, color: Colors.purple.shade700, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        hotel.distanceText,
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                      ),
+                    ],
+                  ),
+                  if (hotel.starRating != null || hotel.estimatedPrice != null) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        if (hotel.starRating != null) ...[
+                          ...List.generate(hotel.starRating!, (i) => 
+                            Icon(Icons.star, color: Colors.amber, size: 12)),
+                          const SizedBox(width: 8),
+                        ],
+                        if (hotel.estimatedPrice != null)
+                          Text(
+                            '~${hotel.priceText}',
+                            style: TextStyle(fontSize: 11, color: Colors.green.shade700, fontWeight: FontWeight.w500),
+                          ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      )).toList(),
+    );
+  }
+
+  Widget _buildAttractionsSection(_ExpandedSectionData? data) {
+    if (data == null || data.isLoading) {
+      return _buildLoadingContent('Finding nearby attractions...');
+    }
+    
+    if (data.error != null) {
+      return _buildErrorContent('Could not find attractions');
+    }
+    
+    final attractions = data.attractions ?? [];
+    if (attractions.isEmpty) {
+      return _buildEmptyContent('No nearby attractions found', Icons.place);
+    }
+    
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: attractions.map((attraction) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.green.shade50,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.green.shade200),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(attraction.icon, style: const TextStyle(fontSize: 16)),
+            const SizedBox(width: 6),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  attraction.name,
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green.shade800),
+                ),
+                Text(
+                  '${attraction.type} • ${attraction.distanceText}',
+                  style: TextStyle(fontSize: 10, color: Colors.green.shade600),
+                ),
+              ],
+            ),
+          ],
+        ),
+      )).toList(),
+    );
+  }
+
+  Widget _buildLoadingContent(String text) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blue.shade400),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorContent(String text) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.red.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline, color: Colors.red.shade400, size: 20),
+          const SizedBox(width: 8),
+          Text(text, style: TextStyle(color: Colors.red.shade700, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyContent(String text, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.grey.shade400, size: 20),
+          const SizedBox(width: 8),
+          Text(text, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
         ],
       ),
     );
@@ -677,7 +1125,7 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: 0.1),
+                color: iconColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Icon(icon, color: iconColor, size: 18),
@@ -691,83 +1139,25 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
       ],
     );
   }
+}
 
-  Widget _buildPlaceholderContent(String text, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: Colors.grey.shade400, size: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(color: Colors.grey.shade500, fontSize: 12, fontStyle: FontStyle.italic),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              'Coming Soon',
-              style: TextStyle(color: Colors.blue.shade700, fontSize: 10, fontWeight: FontWeight.w500),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+/// Data class to hold expanded section data for each destination
+class _ExpandedSectionData {
+  final bool isLoading;
+  final bool isLoaded;
+  final String? error;
+  final WeatherAlert? weather;
+  final List<Restaurant>? restaurants;
+  final List<Hotel>? hotels;
+  final List<Attraction>? attractions;
 
-  Widget _buildNearbyAttractions(Map<String, dynamic> place) {
-    final attractions = place['nearby_attractions'];
-
-    if (attractions == null || (attractions is List && attractions.isEmpty)) {
-      return _buildPlaceholderContent('Nearby attractions will be displayed here', Icons.place);
-    }
-
-    List<String> attractionList = [];
-    if (attractions is List) {
-      attractionList = attractions.map((e) => e.toString()).toList();
-    } else if (attractions is String) {
-      attractionList = attractions.split(',').map((e) => e.trim()).toList();
-    }
-
-    if (attractionList.isEmpty) {
-      return _buildPlaceholderContent('Nearby attractions will be displayed here', Icons.place);
-    }
-
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: attractionList.take(5).map((attraction) {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.green.shade50,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.green.shade200),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.place, size: 14, color: Colors.green.shade700),
-              const SizedBox(width: 4),
-              Text(
-                attraction,
-                style: TextStyle(fontSize: 11, color: Colors.green.shade800),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
-    );
-  }
+  _ExpandedSectionData({
+    this.isLoading = false,
+    this.isLoaded = false,
+    this.error,
+    this.weather,
+    this.restaurants,
+    this.hotels,
+    this.attractions,
+  });
 }

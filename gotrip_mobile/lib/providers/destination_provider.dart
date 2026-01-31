@@ -17,6 +17,44 @@ class DestinationProvider extends ChangeNotifier {
   String? get error => _error;
   Set<String> get favorites => _favorites;
 
+  // Check if a destination is in favorites
+  bool isFavorite(String destinationId) {
+    return _favorites.contains(destinationId);
+  }
+
+  // Load user's favorites from Supabase
+  Future<void> loadUserFavorites(String userId) async {
+    try {
+      final favoriteIds = await _supabaseService.getUserFavoriteIds(userId);
+      _favorites = Set<String>.from(favoriteIds);
+      print('✓ Loaded ${_favorites.length} favorites for user');
+      notifyListeners();
+    } catch (e) {
+      print('✗ Error loading favorites: $e');
+      _error = e.toString();
+    }
+  }
+
+  // Toggle favorite status for a destination
+  Future<void> toggleFavorite(String userId, String destinationId) async {
+    try {
+      if (_favorites.contains(destinationId)) {
+        await _supabaseService.removeFromFavorites(userId, destinationId);
+        _favorites.remove(destinationId);
+        print('✓ Removed from favorites: $destinationId');
+      } else {
+        await _supabaseService.addToFavorites(userId, destinationId);
+        _favorites.add(destinationId);
+        print('✓ Added to favorites: $destinationId');
+      }
+      notifyListeners();
+    } catch (e) {
+      print('✗ Error toggling favorite: $e');
+      _error = e.toString();
+      notifyListeners();
+    }
+  }
+
   Future<void> fetchAllDestinations() async {
     _isLoading = true;
     _error = null;
@@ -82,36 +120,9 @@ class DestinationProvider extends ChangeNotifier {
     return null;
   }
 
-  Future<void> addToFavorites(String userId, String destinationId) async {
-    try {
-      await _supabaseService.addToFavorites(userId, destinationId);
-      _favorites.add(destinationId);
-      notifyListeners();
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-    }
-  }
-
-  Future<void> removeFromFavorites(String userId, String destinationId) async {
-    try {
-      await _supabaseService.removeFromFavorites(userId, destinationId);
-      _favorites.remove(destinationId);
-      notifyListeners();
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-    }
-  }
-
-  Future<void> checkFavorites(String userId) async {
-    try {
-      _favorites.clear();
-      notifyListeners();
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-    }
+  // Get list of favorite destinations as Destination objects
+  List<Destination> get favoriteDestinations {
+    return _destinations.where((d) => _favorites.contains(d.id)).toList();
   }
 
   Future<void> addDestination(Destination destination) async {

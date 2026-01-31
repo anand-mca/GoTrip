@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/app_constants.dart';
 import '../widgets/trip_card.dart';
 import '../models/destination_model.dart';
@@ -36,7 +37,6 @@ class HomeContentScreen extends StatefulWidget {
 }
 
 class _HomeContentScreenState extends State<HomeContentScreen> {
-  final List<String> savedTrips = [];
   bool _dataLoaded = false;
   
   // Journey tracking
@@ -56,6 +56,13 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
       final destinationProvider = context.read<DestinationProvider>();
       await destinationProvider.fetchAllDestinations();
       print('🏠 HomeScreen: Got ${destinationProvider.destinations.length} destinations');
+      
+      // Load user favorites if logged in
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        await destinationProvider.loadUserFavorites(user.id);
+      }
+      
       setState(() {
         _dataLoaded = true;
       });
@@ -245,6 +252,7 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                           itemCount: destinationsToDisplay.length,
                           itemBuilder: (context, index) {
                             final destination = destinationsToDisplay[index];
+                            final isFavorite = destinationProvider.isFavorite(destination.id);
                             return SizedBox(
                               width: 250,
                               child: Padding(
@@ -256,7 +264,7 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                                   price: destination.price,
                                   rating: destination.rating,
                                   reviews: destination.reviews,
-                                  isSaved: savedTrips.contains(destination.id),
+                                  isSaved: isFavorite,
                                   onTap: () {
                                     Navigator.pushNamed(
                                       context,
@@ -264,14 +272,18 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                                       arguments: destination,
                                     );
                                   },
-                                  onSavePressed: () {
-                                    setState(() {
-                                      if (savedTrips.contains(destination.id)) {
-                                        savedTrips.remove(destination.id);
-                                      } else {
-                                        savedTrips.add(destination.id);
-                                      }
-                                    });
+                                  onSavePressed: () async {
+                                    final user = Supabase.instance.client.auth.currentUser;
+                                    if (user == null) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Please login to save favorites'),
+                                          backgroundColor: Colors.orange,
+                                        ),
+                                      );
+                                      return;
+                                    }
+                                    await destinationProvider.toggleFavorite(user.id, destination.id);
                                   },
                                 ),
                               ),
@@ -308,6 +320,7 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
 
                       return Column(
                         children: destinationProvider.destinations.skip(10).take(5).map((destination) {
+                          final isFavorite = destinationProvider.isFavorite(destination.id);
                           return Padding(
                             padding: const EdgeInsets.only(bottom: AppSpacing.md),
                             child: TripCard(
@@ -317,7 +330,7 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                               price: destination.price,
                               rating: destination.rating,
                               reviews: destination.reviews,
-                              isSaved: savedTrips.contains(destination.id),
+                              isSaved: isFavorite,
                               onTap: () {
                                 Navigator.pushNamed(
                                   context,
@@ -325,14 +338,18 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                                   arguments: destination,
                                 );
                               },
-                              onSavePressed: () {
-                                setState(() {
-                                  if (savedTrips.contains(destination.id)) {
-                                    savedTrips.remove(destination.id);
-                                  } else {
-                                    savedTrips.add(destination.id);
-                                  }
-                                });
+                              onSavePressed: () async {
+                                final user = Supabase.instance.client.auth.currentUser;
+                                if (user == null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Please login to save favorites'),
+                                      backgroundColor: Colors.orange,
+                                    ),
+                                  );
+                                  return;
+                                }
+                                await destinationProvider.toggleFavorite(user.id, destination.id);
                               },
                             ),
                           );

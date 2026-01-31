@@ -258,11 +258,11 @@ class SupabaseService {
   }
 
   // Favorites Methods
-  Future<void> addToFavorites(String userId, String tripId) async {
+  Future<void> addToFavorites(String userId, String destinationId) async {
     try {
       await client.from('favorites').insert({
         'user_id': userId,
-        'trip_id': tripId,
+        'destination_id': destinationId,
         'created_at': DateTime.now().toIso8601String(),
       });
     } catch (e) {
@@ -271,13 +271,13 @@ class SupabaseService {
     }
   }
 
-  Future<void> removeFromFavorites(String userId, String tripId) async {
+  Future<void> removeFromFavorites(String userId, String destinationId) async {
     try {
       await client
           .from('favorites')
           .delete()
           .eq('user_id', userId)
-          .eq('trip_id', tripId);
+          .eq('destination_id', destinationId);
     } catch (e) {
       print('Error removing from favorites: $e');
       rethrow;
@@ -288,7 +288,7 @@ class SupabaseService {
     try {
       final response = await client
           .from('favorites')
-          .select('*, trips(*)')
+          .select('*, destinations(*)')
           .eq('user_id', userId);
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
@@ -297,17 +297,30 @@ class SupabaseService {
     }
   }
 
-  Future<bool> isFavorite(String userId, String tripId) async {
+  Future<bool> isFavorite(String userId, String destinationId) async {
     try {
       final response = await client
           .from('favorites')
           .select()
           .eq('user_id', userId)
-          .eq('trip_id', tripId);
+          .eq('destination_id', destinationId);
       return response.isNotEmpty;
     } catch (e) {
       print('Error checking favorite: $e');
       return false;
+    }
+  }
+
+  Future<List<String>> getUserFavoriteIds(String userId) async {
+    try {
+      final response = await client
+          .from('favorites')
+          .select('destination_id')
+          .eq('user_id', userId);
+      return List<String>.from(response.map((item) => item['destination_id'] as String));
+    } catch (e) {
+      print('Error fetching favorite IDs: $e');
+      return [];
     }
   }
 

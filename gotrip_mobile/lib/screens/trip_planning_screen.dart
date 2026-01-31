@@ -922,10 +922,22 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
                 ),
                 child: Column(
                   children: filteredDestinations.map((destination) {
+                    final isFavorite = provider.isFavorite(destination.id);
                     return ListTile(
                       dense: true,
-                      leading: const Icon(Icons.location_on,
-                          size: 18, color: Colors.blue),
+                      leading: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.location_on,
+                              size: 18, color: Colors.blue),
+                          if (isFavorite)
+                            const Padding(
+                              padding: EdgeInsets.only(left: 4),
+                              child: Icon(Icons.favorite,
+                                  size: 14, color: Colors.red),
+                            ),
+                        ],
+                      ),
                       title: Text(destination.title,
                           style: const TextStyle(fontSize: 12)),
                       subtitle: Text(destination.location,

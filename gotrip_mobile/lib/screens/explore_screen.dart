@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/app_constants.dart';
 import '../models/destination_model.dart';
 import '../providers/destination_provider.dart';
@@ -14,17 +15,20 @@ class ExploreScreen extends StatefulWidget {
 
 class _ExploreScreenState extends State<ExploreScreen> {
   final _searchController = TextEditingController();
-  final List<String> savedDestinations = [];
   String _selectedCategory = 'All';
-  String _selectedDifficulty = 'All';
-
-  final List<String> _difficulties = ['All', 'easy', 'moderate', 'hard']; 
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<DestinationProvider>().fetchAllDestinations();
+      final provider = context.read<DestinationProvider>();
+      provider.fetchAllDestinations();
+      
+      // Load user favorites if logged in
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        provider.loadUserFavorites(user.id);
+      }
     });
   }
 
@@ -44,13 +48,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
     return destinations.where((destination) {
       final matchesSearch = destination.title.toLowerCase().contains(_searchController.text.toLowerCase()) ||
           destination.location.toLowerCase().contains(_searchController.text.toLowerCase());
-      final matchesDifficulty = _selectedDifficulty == 'All' || destination.difficulty.toLowerCase() == _selectedDifficulty.toLowerCase();
       
       // Simple direct matching with lowercase comparison
       final matchesCategory = _selectedCategory == 'All' || 
           destination.category.toLowerCase() == _selectedCategory.toLowerCase();
       
-      return matchesSearch && matchesDifficulty && matchesCategory;
+      return matchesSearch && matchesCategory;
     }).toList();
   }
 
@@ -79,7 +82,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
           return Column(
             children: [
-              // Search and Filter Section
+              // Search Section
               Container(
                 padding: const EdgeInsets.all(AppSpacing.lg),
                 decoration: const BoxDecoration(
@@ -115,28 +118,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(AppRadius.lg),
                           borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    // Filter Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: () {
-                          _showFilterBottomSheet(context);
-                        },
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.white),
-                          foregroundColor: Colors.white,
-                        ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.tune),
-                            SizedBox(width: AppSpacing.sm),
-                            Text('Filters'),
-                          ],
                         ),
                       ),
                     ),
@@ -193,7 +174,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       Text(
-                        'Try adjusting your filters',
+                        'Try adjusting your search',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: AppColors.textSecondary,
                         ),
@@ -206,6 +187,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   itemCount: filteredDestinations.length,
                   itemBuilder: (context, index) {
                     final destination = filteredDestinations[index];
+                    final isFavorite = provider.isFavorite(destination.id);
+                    
                     return Padding(
                       padding: const EdgeInsets.only(bottom: AppSpacing.md),
                       child: TripCard(
@@ -215,7 +198,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         price: destination.price,
                         rating: destination.rating,
                         reviews: destination.reviews,
-                        isSaved: savedDestinations.contains(destination.id),
+                        isSaved: isFavorite,
                         onTap: () {
                           Navigator.pushNamed(
                             context,
@@ -223,14 +206,35 @@ class _ExploreScreenState extends State<ExploreScreen> {
                             arguments: destination,
                           );
                         },
-                        onSavePressed: () {
-                          setState(() {
-                            if (savedDestinations.contains(destination.id)) {
-                              savedDestinations.remove(destination.id);
-                            } else {
-                              savedDestinations.add(destination.id);
-                            }
-                          });
+                        onSavePressed: () async {
+                          final user = Supabase.instance.client.auth.currentUser;
+                          if (user == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Please login to save favorites'),
+                                backgroundColor: Colors.orange,
+                              ),
+                            );
+                            return;
+                          }
+                          
+                          await provider.toggleFavorite(user.id, destination.id);
+                          
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  provider.isFavorite(destination.id)
+                                      ? '${destination.title} added to favorites ❤️'
+                                      : '${destination.title} removed from favorites',
+                                ),
+                                backgroundColor: provider.isFavorite(destination.id)
+                                    ? Colors.green
+                                    : Colors.grey,
+                                duration: const Duration(seconds: 1),
+                              ),
+                            );
+                          }
                         },
                       ),
                     );
@@ -241,64 +245,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
           );
         },
       ),
-    );
-  }
-
-  void _showFilterBottomSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Container(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Filters',
-                    style: Theme.of(context).textTheme.displaySmall,
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  // Difficulty Filter
-                  Text(
-                    'Difficulty',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  Wrap(
-                    spacing: AppSpacing.md,
-                    children: _difficulties.map((difficulty) {
-                      return FilterChip(
-                        label: Text(difficulty),
-                        selected: _selectedDifficulty == difficulty,
-                        onSelected: (selected) {
-                          setModalState(() {
-                            _selectedDifficulty = difficulty;
-                          });
-                          setState(() {
-                            _selectedDifficulty = difficulty;
-                          });
-                        },
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  // Apply Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Apply Filters'),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
     );
   }
 }
