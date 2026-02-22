@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../utils/app_constants.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../providers/auth_provider.dart';
+import '../providers/destination_provider.dart';
+import '../providers/theme_provider.dart';
 import '../services/supabase_service.dart';
+import '../services/journey_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -13,17 +16,20 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final List<String> _savedTrips = ['1', '2', '3'];
   Map<String, dynamic>? _userProfile;
   bool _isLoading = true;
   bool _notificationsEnabled = true;
-  bool _emailUpdatesEnabled = true;
-  bool _twoFactorEnabled = false;
+  
+  // Stats
+  int _completedTrips = 0;
+  int _destinationsVisited = 0;
+  int _favouritesCount = 0;
 
   @override
   void initState() {
     super.initState();
     _loadUserProfile();
+    _loadStats();
   }
 
   Future<void> _loadUserProfile() async {
@@ -31,75 +37,114 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final supabaseService = SupabaseService();
       final authUser = supabaseService.getCurrentUser();
       
-      print('DEBUG: Current user from auth: $authUser');
-      print('DEBUG: User ID: ${authUser?.id}');
-      
       if (authUser != null) {
         final profile = await supabaseService.getUserProfile(authUser.id);
         
-        print('DEBUG: Profile loaded: $profile');
-        
-        if (profile != null) {
-          if (mounted) {
-            setState(() {
-              _userProfile = profile;
-              _isLoading = false;
-            });
-          }
-        } else {
-          if (mounted) {
-            setState(() {
-              _isLoading = false;
-            });
-          }
-          print('DEBUG: Profile is null for user ${authUser.id}');
-        }
-      } else {
-        if (mounted) {
+        if (profile != null && mounted) {
           setState(() {
+            _userProfile = profile;
             _isLoading = false;
           });
+        } else if (mounted) {
+          setState(() => _isLoading = false);
         }
-        print('DEBUG: No authenticated user found');
+      } else if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+      print('ERROR loading profile: $e');
+    }
+  }
+
+  Future<void> _loadStats() async {
+    try {
+      final journeyService = JourneyService();
+      final history = await journeyService.getTripHistory();
+      
+      int totalDestinations = 0;
+      for (var trip in history) {
+        final itineraries = trip['daily_itineraries'] as List? ?? [];
+        for (var day in itineraries) {
+          final destinations = day['destinations'] as List? ?? [];
+          for (var dest in destinations) {
+            if (dest['is_visited'] == true) {
+              totalDestinations++;
+            }
+          }
+        }
+      }
+      
+      final destinationProvider = context.read<DestinationProvider>();
+      
+      if (mounted) {
+        setState(() {
+          _completedTrips = history.length;
+          _destinationsVisited = totalDestinations;
+          _favouritesCount = destinationProvider.favorites.length;
+        });
+      }
+    } catch (e) {
+      print('Error loading stats: $e');
+    }
+  }
+
+  Future<void> _openEmailSupport() async {
+    final Uri emailUri = Uri(
+      scheme: 'mailto',
+      path: 'anandvijayan124@gmail.com',
+      queryParameters: {
+        'subject': 'GoTrip App Support Request',
+        'body': 'Hi GoTrip Support Team,\n\n[Describe your issue here]\n\nBest regards,\n${_userProfile?['name'] ?? 'User'}',
+      },
+    );
+    
+    try {
+      if (await canLaunchUrl(emailUri)) {
+        await launchUrl(emailUri);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not open email app')),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
       }
-      print('ERROR loading profile: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final primaryColor = themeProvider.primaryColor;
+    final textOnPrimary = themeProvider.textOnPrimaryColor;
+    final backgroundColor = themeProvider.backgroundColor;
+    final textColor = themeProvider.textColor;
+    
     return Scaffold(
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: const Text('Profile'),
+        title: Text('Profile', style: TextStyle(color: textOnPrimary, fontWeight: FontWeight.bold)),
+        backgroundColor: primaryColor,
+        foregroundColor: textOnPrimary,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {},
-          ),
-        ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(color: primaryColor))
           : SingleChildScrollView(
         child: Column(
           children: [
             // Profile Header
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AppColors.primary, AppColors.primaryDark],
-                ),
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: primaryColor,
               ),
               child: Column(
                 children: [
@@ -107,173 +152,155 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     width: 100,
                     height: 100,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: themeProvider.isDarkMode ? Colors.black : Colors.white,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.shadow,
+                          color: Colors.black.withOpacity(0.2),
                           blurRadius: 12,
                         ),
                       ],
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.person,
                       size: 50,
-                      color: AppColors.primary,
+                      color: primaryColor,
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.lg),
+                  const SizedBox(height: 16),
                   Text(
                     _userProfile?['name'] ?? 'User',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: textOnPrimary,
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.sm),
+                  const SizedBox(height: 4),
                   Text(
                     _userProfile?['email'] ?? 'email@example.com',
-                    style: const TextStyle(
-                      color: Colors.white70,
+                    style: TextStyle(
+                      color: textOnPrimary.withOpacity(0.8),
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.lg),
+                  const SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _buildStatCard('0', 'Trips'),
-                      _buildStatCard('0', 'Reviews'),
-                      _buildStatCard('${_savedTrips.length}', 'Saved'),
+                      _buildStatCard('$_completedTrips', 'Trips', textOnPrimary),
+                      _buildStatCard('$_destinationsVisited', 'Visited', textOnPrimary),
+                      _buildStatCard('$_favouritesCount', 'Favourites', textOnPrimary),
                     ],
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: AppSpacing.lg),
+            const SizedBox(height: 20),
             // Profile Sections
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // User Info Section
+                  // Personal Information
                   Text(
                     'Personal Information',
-                    style: Theme.of(context).textTheme.headlineSmall,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
+                    ),
                   ),
-                  const SizedBox(height: AppSpacing.md),
-                  _buildInfoTile('Phone', _userProfile?['phone'] ?? 'Not set', Icons.phone),
-                  _buildInfoTile('Location', _userProfile?['location'] ?? 'Not set', Icons.location_on),
-                  _buildInfoTile('Bio', _userProfile?['bio'] ?? 'No bio added', Icons.description),
-                  const SizedBox(height: AppSpacing.lg),
-                  // Preferences Section
+                  const SizedBox(height: 12),
+                  _buildInfoTile('Phone', _userProfile?['phone'] ?? 'Not set', Icons.phone, primaryColor, textColor),
+                  _buildInfoTile('Bio', _userProfile?['bio'] ?? 'No bio added', Icons.description, primaryColor, textColor),
+                  const SizedBox(height: 24),
+                  
+                  // Preferences
                   Text(
                     'Preferences',
-                    style: Theme.of(context).textTheme.headlineSmall,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
+                    ),
                   ),
-                  const SizedBox(height: AppSpacing.md),
+                  const SizedBox(height: 12),
                   _buildPreferenceTile('Notifications', _notificationsEnabled, (value) {
-                    setState(() {
-                      _notificationsEnabled = value;
-                    });
-                  }),
-                  _buildPreferenceTile('Email Updates', _emailUpdatesEnabled, (value) {
-                    setState(() {
-                      _emailUpdatesEnabled = value;
-                    });
-                  }),
-                  _buildPreferenceTile('Two-Factor Authentication', _twoFactorEnabled, (value) {
-                    setState(() {
-                      _twoFactorEnabled = value;
-                    });
-                  }),
-                  const SizedBox(height: AppSpacing.lg),
-                  // Saved Trips Section
+                    setState(() => _notificationsEnabled = value);
+                  }, primaryColor, textColor),
+                  _buildPreferenceTile('Dark Mode', themeProvider.isDarkMode, (value) {
+                    themeProvider.toggleTheme(value);
+                  }, primaryColor, textColor),
+                  const SizedBox(height: 24),
+                  
+                  // Favourite Destinations
                   Text(
-                    'Saved Trips',
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  Container(
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceAlt,
-                      borderRadius: BorderRadius.circular(AppRadius.lg),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.bookmark,
-                          color: AppColors.primary,
-                          size: 24,
-                        ),
-                        const SizedBox(width: AppSpacing.md),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'You have ${_savedTrips.length} saved trips',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            const SizedBox(height: AppSpacing.xs),
-                            Text(
-                              'Tap to view your collection',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const Spacer(),
-                        const Icon(
-                          Icons.arrow_forward_ios,
-                          size: 16,
-                          color: AppColors.textSecondary,
-                        ),
-                      ],
+                    'Favourite Destinations',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.lg),
-                  // Account Settings
+                  const SizedBox(height: 12),
+                  GestureDetector(
+                    onTap: () => Navigator.pushNamed(context, '/favourite-destinations'),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: themeProvider.surfaceColor,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: primaryColor),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.favorite, color: primaryColor, size: 24),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'You have $_favouritesCount favourite destinations',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: textColor,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Tap to view your collection',
+                                  style: TextStyle(
+                                    color: textColor.withOpacity(0.6),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(Icons.arrow_forward_ios, size: 16, color: textColor.withOpacity(0.5)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Account
                   Text(
                     'Account',
-                    style: Theme.of(context).textTheme.headlineSmall,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
+                    ),
                   ),
-                  const SizedBox(height: AppSpacing.md),
-                  ListTile(
-                    leading: const Icon(Icons.edit, color: AppColors.primary),
-                    title: const Text('Edit Profile'),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: () => _showEditProfileDialog(context),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.lock, color: AppColors.primary),
-                    title: const Text('Change Password'),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: () => _showChangePasswordDialog(context),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.help, color: AppColors.primary),
-                    title: const Text('Help & Support'),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Help & Support feature coming soon!')),
-                      );
-                    },
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.logout, color: AppColors.error),
-                    title: const Text('Logout'),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: () => _showLogoutDialog(context),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  const SizedBox(height: AppSpacing.xl),
+                  const SizedBox(height: 12),
+                  _buildAccountTile('Edit Profile', Icons.edit, primaryColor, textColor, () => _showEditProfileDialog(context)),
+                  _buildAccountTile('Change Password', Icons.lock, primaryColor, textColor, () => _showChangePasswordDialog(context)),
+                  _buildAccountTile('Help & Support', Icons.help, primaryColor, textColor, _openEmailSupport),
+                  _buildAccountTile('Logout', Icons.logout, Colors.red, textColor, () => _showLogoutDialog(context), isLogout: true),
+                  const SizedBox(height: 40),
                 ],
               ),
             ),
@@ -283,22 +310,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildStatCard(String value, String label) {
+  Widget _buildStatCard(String value, String label, Color textColor) {
     return Column(
       children: [
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 20,
+          style: TextStyle(
+            fontSize: 22,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: textColor,
           ),
         ),
-        const SizedBox(height: AppSpacing.xs),
+        const SizedBox(height: 4),
         Text(
           label,
-          style: const TextStyle(
-            color: Colors.white70,
+          style: TextStyle(
+            color: textColor.withOpacity(0.8),
             fontSize: 12,
           ),
         ),
@@ -306,60 +333,69 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildInfoTile(String label, String value, IconData icon) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, color: AppColors.primary, size: 20),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    value,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.lg),
-      ],
-    );
-  }
-
-  Widget _buildPreferenceTile(String title, bool value, Function(bool) onChanged) {
+  Widget _buildInfoTile(String label, String value, IconData icon, Color primaryColor, Color textColor) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            title,
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: AppColors.primary,
+          Icon(icon, color: primaryColor, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: textColor.withOpacity(0.6),
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(color: textColor),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
+  Widget _buildPreferenceTile(String title, bool value, Function(bool) onChanged, Color primaryColor, Color textColor) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(title, style: TextStyle(color: textColor)),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeColor: primaryColor,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAccountTile(String title, IconData icon, Color iconColor, Color textColor, VoidCallback onTap, {bool isLogout = false}) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(icon, color: iconColor),
+      title: Text(
+        title,
+        style: TextStyle(color: isLogout ? Colors.red : textColor),
+      ),
+      trailing: Icon(Icons.arrow_forward_ios, size: 16, color: textColor.withOpacity(0.5)),
+      onTap: onTap,
+    );
+  }
+
   void _showEditProfileDialog(BuildContext context) {
+    final themeProvider = context.read<ThemeProvider>();
     final nameController = TextEditingController(text: _userProfile?['name'] ?? '');
     final phoneController = TextEditingController(text: _userProfile?['phone'] ?? '');
     final bioController = TextEditingController(text: _userProfile?['bio'] ?? '');
@@ -368,32 +404,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Edit Profile'),
+          backgroundColor: themeProvider.surfaceColor,
+          title: Text('Edit Profile', style: TextStyle(color: themeProvider.textColor)),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextField(
                   controller: nameController,
-                  decoration: const InputDecoration(
+                  style: TextStyle(color: themeProvider.textColor),
+                  decoration: InputDecoration(
                     labelText: 'Name',
-                    border: OutlineInputBorder(),
+                    border: OutlineInputBorder(borderSide: BorderSide(color: themeProvider.primaryColor)),
+                    focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: themeProvider.primaryColor)),
                   ),
                 ),
-                const SizedBox(height: AppSpacing.md),
+                const SizedBox(height: 12),
                 TextField(
                   controller: phoneController,
-                  decoration: const InputDecoration(
+                  style: TextStyle(color: themeProvider.textColor),
+                  decoration: InputDecoration(
                     labelText: 'Phone',
-                    border: OutlineInputBorder(),
+                    border: OutlineInputBorder(borderSide: BorderSide(color: themeProvider.primaryColor)),
+                    focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: themeProvider.primaryColor)),
                   ),
                 ),
-                const SizedBox(height: AppSpacing.md),
+                const SizedBox(height: 12),
                 TextField(
                   controller: bioController,
-                  decoration: const InputDecoration(
+                  style: TextStyle(color: themeProvider.textColor),
+                  decoration: InputDecoration(
                     labelText: 'Bio',
-                    border: OutlineInputBorder(),
+                    border: OutlineInputBorder(borderSide: BorderSide(color: themeProvider.primaryColor)),
+                    focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: themeProvider.primaryColor)),
                   ),
                   maxLines: 3,
                 ),
@@ -403,15 +446,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: Text('Cancel', style: TextStyle(color: themeProvider.primaryColor)),
             ),
-            TextButton(
+            ElevatedButton(
               onPressed: () async {
                 try {
                   final supabaseService = SupabaseService();
                   final user = supabaseService.getCurrentUser();
-                  
-                  print('DEBUG: Updating profile for user: ${user?.id}');
                   
                   if (user != null) {
                     await supabaseService.updateUserProfile(user.id, {
@@ -421,26 +462,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       'updated_at': DateTime.now().toIso8601String(),
                     });
                     
-                    print('DEBUG: Profile updated successfully');
-                    
                     if (mounted) {
                       Navigator.pop(context);
                       await _loadUserProfile();
-                      
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Profile updated successfully!')),
-                      );
-                    }
-                  } else {
-                    print('DEBUG: No user found for update');
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Error: User not found')),
+                        SnackBar(content: const Text('Profile updated!'), backgroundColor: themeProvider.primaryColor),
                       );
                     }
                   }
                 } catch (e) {
-                  print('DEBUG: Error updating profile: $e');
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Error: $e')),
@@ -448,7 +478,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   }
                 }
               },
-              child: const Text('Save'),
+              style: ElevatedButton.styleFrom(backgroundColor: themeProvider.primaryColor),
+              child: Text('Save', style: TextStyle(color: themeProvider.textOnPrimaryColor)),
             ),
           ],
         );
@@ -457,7 +488,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showChangePasswordDialog(BuildContext context) {
-    final currentPasswordController = TextEditingController();
+    final themeProvider = context.read<ThemeProvider>();
     final newPasswordController = TextEditingController();
     final confirmPasswordController = TextEditingController();
 
@@ -465,35 +496,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Change Password'),
+          backgroundColor: themeProvider.surfaceColor,
+          title: Text('Change Password', style: TextStyle(color: themeProvider.textColor)),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextField(
-                  controller: currentPasswordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Current Password',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                TextField(
                   controller: newPasswordController,
                   obscureText: true,
-                  decoration: const InputDecoration(
+                  style: TextStyle(color: themeProvider.textColor),
+                  decoration: InputDecoration(
                     labelText: 'New Password',
-                    border: OutlineInputBorder(),
+                    border: OutlineInputBorder(borderSide: BorderSide(color: themeProvider.primaryColor)),
                   ),
                 ),
-                const SizedBox(height: AppSpacing.md),
+                const SizedBox(height: 12),
                 TextField(
                   controller: confirmPasswordController,
                   obscureText: true,
-                  decoration: const InputDecoration(
+                  style: TextStyle(color: themeProvider.textColor),
+                  decoration: InputDecoration(
                     labelText: 'Confirm Password',
-                    border: OutlineInputBorder(),
+                    border: OutlineInputBorder(borderSide: BorderSide(color: themeProvider.primaryColor)),
                   ),
                 ),
               ],
@@ -502,9 +527,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: Text('Cancel', style: TextStyle(color: themeProvider.primaryColor)),
             ),
-            TextButton(
+            ElevatedButton(
               onPressed: () async {
                 if (newPasswordController.text != confirmPasswordController.text) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -515,27 +540,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                 try {
                   final supabaseService = SupabaseService();
-                  final user = supabaseService.getCurrentUser();
+                  await supabaseService.client.auth.updateUser(
+                    UserAttributes(password: newPasswordController.text),
+                  );
                   
-                  if (user != null) {
-                    // Try to update password
-                    await supabaseService.client.auth.updateUser(
-                      UserAttributes(password: newPasswordController.text),
-                    );
-                    
+                  if (mounted) {
                     Navigator.pop(context);
-                    
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Password changed successfully!')),
+                      SnackBar(content: const Text('Password changed!'), backgroundColor: themeProvider.primaryColor),
                     );
                   }
                 } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: $e')),
-                  );
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: $e')),
+                    );
+                  }
                 }
               },
-              child: const Text('Update'),
+              style: ElevatedButton.styleFrom(backgroundColor: themeProvider.primaryColor),
+              child: Text('Update', style: TextStyle(color: themeProvider.textOnPrimaryColor)),
             ),
           ],
         );
@@ -544,18 +568,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showLogoutDialog(BuildContext context) {
+    final themeProvider = context.read<ThemeProvider>();
+    
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Logout'),
-          content: const Text('Are you sure you want to logout?'),
+          backgroundColor: themeProvider.surfaceColor,
+          title: Text('Logout', style: TextStyle(color: themeProvider.textColor)),
+          content: Text('Are you sure you want to logout?', style: TextStyle(color: themeProvider.textColor)),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: Text('Cancel', style: TextStyle(color: themeProvider.primaryColor)),
             ),
-            TextButton(
+            ElevatedButton(
               onPressed: () async {
                 try {
                   final authProvider = context.read<AuthProvider>();
@@ -571,7 +598,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   );
                 }
               },
-              child: const Text('Logout', style: TextStyle(color: AppColors.error)),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Logout', style: TextStyle(color: Colors.white)),
             ),
           ],
         );

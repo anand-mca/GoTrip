@@ -129,5 +129,53 @@ app.*.map.json
 android/app/google-services.json
 ios/Runner/GoogleService-Info.plist
 
+# API Keys and Sensitive Configuration
+lib/services/groq_service.dart
+**/.env
+**/.env.local
+**/.env.*.local
+config/api_keys.dart
+**/secrets.dart
+
+# Dart/Flutter
+.dart_tool/
+pubspec.lock
+.packages
+.package_config.json
+build/
+/build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.fvm/
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*.swn
+.DS_Store
+*.iml
+*.ipr
+*.iws
+
+# Android
+android/local.properties
+android/gradle.properties
+android/.gradle/
+android/**/GeneratedPluginRegistrant.java
+android/**/GeneratedPluginRegistrant.kt
+android/app/debug/
+android/app/profile/
+android/app/release/
+
+# iOS
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+
+# Large files
+*.tflite
+gotrip_mobile/assets/models/destination_model.tflite
+
 # OS
 Thumbs.db

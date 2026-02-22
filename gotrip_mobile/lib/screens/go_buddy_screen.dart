@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/destination_classifier.dart';
+import '../providers/theme_provider.dart';
+import '../services/groq_service.dart';
 
 class GoBuddyScreen extends StatefulWidget {
   const GoBuddyScreen({Key? key}) : super(key: key);
@@ -10,24 +14,134 @@ class GoBuddyScreen extends StatefulWidget {
   State<GoBuddyScreen> createState() => _GoBuddyScreenState();
 }
 
-class _GoBuddyScreenState extends State<GoBuddyScreen> {
+class _GoBuddyScreenState extends State<GoBuddyScreen> with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
   final List<ChatMessage> _messages = [];
   final ScrollController _scrollController = ScrollController();
   final ImagePicker _picker = ImagePicker();
   final DestinationClassifier _classifier = DestinationClassifier.instance;
   bool _isLoading = false;
   bool _isClassifierReady = false;
+  bool _isGeneratingDescription = false;
+  String? _pendingImagePath; // Store pending image when app is paused
+
+  @override
+  bool get wantKeepAlive => true; // Keep state alive
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); // Add lifecycle observer
     _initializeClassifier();
+    _checkCameraSessionRecovery(); // Check if returning from killed camera session
     // Add welcome message
     _messages.add(ChatMessage(
       isUser: false,
-      text: "Hey there, traveler! 👋 I'm GoBuddy, your friendly travel companion!\n\nSnap a photo of any famous Indian monument or landmark, and I'll identify it for you!\n\nI can recognize 24 famous destinations including:\n🏛️ Taj Mahal, Gateway of India, Qutub Minar\n🕌 Hawa Mahal, Charminar, Golden Temple\n🏰 Mysore Palace, Victoria Memorial\n...and many more!\n\nTap the camera button below to get started! 📸",
+      text: "Hey there, traveler! 👋 I'm GoBuddy, your friendly travel companion!\n\nSnap a photo of any famous Indian monument or landmark, and I'll identify it for you!\n\nI can recognize 24 famous destinations including:\n🏛️ Taj Mahal, Gateway of India, Qutub Minar\n🕌 Hawa Mahal, Charminar, Golden Temple\n🏰 Mysore Palace, Victoria Memorial\n...and many more!\n\n📸 **Camera Tip:** If the app restarts when using camera, please use the **Gallery** option instead to upload photos!\n\nTap the camera button below to get started! 📸",
       timestamp: DateTime.now(),
     ));
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    print('🔄 App lifecycle state: $state');
+    
+    if (state == AppLifecycleState.resumed) {
+      // Clear camera session flag when app resumes normally
+      _clearCameraSession();
+      
+      if (_pendingImagePath != null) {
+        // Process pending image after returning from camera
+        print('✅ Processing pending image from camera');
+        final imagePath = _pendingImagePath;
+        _pendingImagePath = null;
+        
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) {
+            _classifyImage(File(imagePath!));
+          }
+        });
+      }
+    } else if (state == AppLifecycleState.paused) {
+      // App is going to background - might be opening camera
+      print('⏸️ App paused (camera opening?)');
+    }
+  }
+  
+  /// Save camera session state before opening camera
+  Future<void> _saveCameraSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('gobuddy_camera_active', true);
+      await prefs.setInt('gobuddy_camera_timestamp', DateTime.now().millisecondsSinceEpoch);
+      print('💾 Saved camera session');
+    } catch (e) {
+      print('❌ Error saving camera session: $e');
+    }
+  }
+  
+  /// Clear camera session state
+  Future<void> _clearCameraSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('gobuddy_camera_active');
+      await prefs.remove('gobuddy_camera_timestamp');
+    } catch (e) {
+      print('❌ Error clearing camera session: $e');
+    }
+  }
+  
+  /// Check if app was killed during camera session and show recovery message
+  Future<void> _checkCameraSessionRecovery() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cameraActive = prefs.getBool('gobuddy_camera_active') ?? false;
+      final timestamp = prefs.getInt('gobuddy_camera_timestamp') ?? 0;
+      
+      if (cameraActive && timestamp > 0) {
+        final elapsed = DateTime.now().millisecondsSinceEpoch - timestamp;
+        // If less than 2 minutes ago, app was likely killed by camera
+        if (elapsed < 120000) {
+          print('⚠️ Detected app was killed during camera session');
+          
+          // Clear the session
+          await _clearCameraSession();
+          
+          // Show recovery message
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              setState(() {
+                _messages.add(ChatMessage(
+                  isUser: false,
+                  text: "⚠️ **Camera Session Interrupted**\n\n"
+                      "It looks like the app was restarted when opening the camera. "
+                      "This can happen on devices with limited memory.\n\n"
+                      "📱 **Recommended Solution:**\n"
+                      "• Use the **Gallery** button to select photos\n"
+                      "• Take photos with your device camera app first\n"
+                      "• Then upload them here using Gallery option\n\n"
+                      "This gives better results and won't restart the app! ✨",
+                  timestamp: DateTime.now(),
+                ));
+              });
+              _scrollToBottom();
+            }
+          });
+        } else {
+          // Old session, just clear it
+          await _clearCameraSession();
+        }
+      }
+    } catch (e) {
+      print('❌ Error checking camera session: $e');
+    }
   }
 
   Future<void> _initializeClassifier() async {
@@ -51,14 +165,28 @@ class _GoBuddyScreenState extends State<GoBuddyScreen> {
 
   Future<void> _pickImage(ImageSource source) async {
     try {
+      // For camera, save state before launching to detect if app gets killed
+      if (source == ImageSource.camera) {
+        print('📸 Launching camera...');
+        await _saveCameraSession(); // Save session BEFORE opening camera
+      }
+
       final XFile? image = await _picker.pickImage(
         source: source,
         maxWidth: 1024,
         maxHeight: 1024,
         imageQuality: 85,
+        preferredCameraDevice: CameraDevice.rear,
       );
 
-      if (image != null) {
+      // Clear camera session if we got here successfully
+      if (source == ImageSource.camera) {
+        await _clearCameraSession();
+      }
+
+      if (image != null && mounted) {
+        print('✅ Image captured: ${image.path}');
+        
         setState(() {
           _messages.add(ChatMessage(
             isUser: true,
@@ -70,16 +198,34 @@ class _GoBuddyScreenState extends State<GoBuddyScreen> {
 
         _scrollToBottom();
 
+        // Small delay to ensure UI updates before processing
+        await Future.delayed(const Duration(milliseconds: 200));
+
         // Classify the image using TFLite model
-        await _classifyImage(File(image.path));
+        if (mounted) {
+          await _classifyImage(File(image.path));
+        }
+      } else {
+        print('⚠️ No image selected or context not mounted');
+        // Clear camera session even if cancelled
+        if (source == ImageSource.camera) {
+          await _clearCameraSession();
+        }
       }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error picking image: $e')),
-      );
+      print('❌ Error picking image: $e');
+      // Clear camera session on error
+      if (source == ImageSource.camera) {
+        await _clearCameraSession();
+      }
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error picking image: $e')),
+        );
+      }
     }
   }
 
@@ -100,11 +246,16 @@ class _GoBuddyScreenState extends State<GoBuddyScreen> {
       // Run classification
       final result = await _classifier.classifyImage(imageFile);
       
+      // Handle classification results
+      if (!mounted) return;
+      
       setState(() {
         _isLoading = false;
-        
-        // Handle web platform fallback
-        if (result.isWebFallback) {
+      });
+      
+      // Handle web platform fallback
+      if (result.isWebFallback) {
+        setState(() {
           _messages.add(ChatMessage(
             isUser: false,
             text: "🌐 **Web Browser Detected**\n\n"
@@ -116,51 +267,99 @@ class _GoBuddyScreenState extends State<GoBuddyScreen> {
                 "💡 _Coming soon: Web support with TensorFlow.js!_",
             timestamp: DateTime.now(),
           ));
-          return;
+        });
+        _scrollToBottom();
+        return;
+      }
+      
+      if (result.isConfident(threshold: 0.5)) {
+        // Confident prediction - show initial message and generate description
+        final destination = result.topPredictions[0].displayLabel;
+        final confidence = result.topPredictions[0].confidencePercent;
+        
+        // First, show recognition message
+        String initialText = "✨ **Wonderful! I know this place!**\n\n"
+            "📍 **${destination}**\n"
+            "🎯 Confidence: $confidence\n\n";
+        
+        // Add alternative predictions if available
+        if (result.topPredictions.length > 1 && result.topPredictions[1].confidencePercent.contains('%')) {
+          initialText += "**Could also be:**\n";
+          for (int i = 1; i < result.topPredictions.length && i < 3; i++) {
+            initialText += "• ${result.topPredictions[i].displayLabel} (${result.topPredictions[i].confidencePercent})\n";
+          }
+          initialText += "\n";
         }
         
-        if (result.isConfident(threshold: 0.3)) {
-          // Confident prediction
-          final destination = result.topPredictions[0].displayLabel;
-          final confidence = result.topPredictions[0].confidencePercent;
-          
-          String responseText = "🎯 **I recognize this place!**\n\n"
-              "📍 **${destination}**\n"
-              "🎯 Confidence: $confidence\n\n";
-          
-          // Add top 3 predictions if there are alternatives
-          if (result.topPredictions.length > 1) {
-            responseText += "Other possibilities:\n";
-            for (int i = 1; i < result.topPredictions.length && i < 3; i++) {
-              responseText += "• ${result.topPredictions[i].displayLabel} (${result.topPredictions[i].confidencePercent})\n";
-            }
-            responseText += "\n";
-          }
-          
-          responseText += "💡 _Coming soon: Detailed history, facts, and nearby attractions powered by AI!_";
-          
+        initialText += "📝 Generating detailed description...";
+        
+        setState(() {
           _messages.add(ChatMessage(
             isUser: false,
-            text: responseText,
+            text: initialText,
             timestamp: DateTime.now(),
             recognizedDestination: destination,
           ));
-        } else {
-          // Low confidence
+          _isGeneratingDescription = true;
+        });
+        
+        _scrollToBottom();
+        
+        // Generate AI description asynchronously (outside setState)
+        try {
+          final description = await GroqService.generateDestinationDescription(destination);
+          
+          if (mounted) {
+            setState(() {
+              _isGeneratingDescription = false;
+              
+              // Add the detailed description message
+              String finalText = "🏛️ **About ${destination}:**\n\n"
+                  "$description\n\n"
+                  "💡 Want to know more? Ask me anything about this destination! 🗺️";
+              
+              _messages.add(ChatMessage(
+                isUser: false,
+                text: finalText,
+                timestamp: DateTime.now(),
+              ));
+            });
+            _scrollToBottom();
+          }
+        } catch (e) {
+          print('❌ Error generating description: $e');
+          if (mounted) {
+            setState(() {
+              _isGeneratingDescription = false;
+              _messages.add(ChatMessage(
+                isUser: false,
+                text: "⚠️ I had trouble generating a detailed description. \n\n"
+                    "But I can confirm this is **${destination}**! 🏛️\n\n"
+                    "It's a wonderful place worth visiting! ✨",
+                timestamp: DateTime.now(),
+              ));
+            });
+            _scrollToBottom();
+          }
+        }
+      } else {
+        // Low confidence - cannot analyze
+        setState(() {
           _messages.add(ChatMessage(
             isUser: false,
-            text: "🤔 I'm not quite sure about this one...\n\n"
-                "My best guess is **${result.topPredictions[0].displayLabel}** "
-                "(${result.topPredictions[0].confidencePercent} confidence)\n\n"
+            text: "📷 **Image cannot be analysed**\n\n"
+                "Please retake a more clearer picture.\n\n"
                 "Tips for better results:\n"
                 "• Make sure the landmark is clearly visible\n"
                 "• Try taking the photo from a different angle\n"
-                "• Ensure good lighting\n\n"
-                "I can recognize famous Indian monuments like Taj Mahal, Gateway of India, Qutub Minar, and more!",
+                "• Ensure good lighting\n"
+                "• Get closer to the destination\n\n"
+                "I work best with famous Indian monuments and tourist spots! 🏛️",
             timestamp: DateTime.now(),
           ));
-        }
-      });
+        });
+        _scrollToBottom();
+      }
 
       _scrollToBottom();
     } catch (e) {
@@ -280,24 +479,35 @@ class _GoBuddyScreenState extends State<GoBuddyScreen> {
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
+    
+    final themeProvider = context.watch<ThemeProvider>();
+    final primaryColor = themeProvider.primaryColor;
+    final textOnPrimary = themeProvider.textOnPrimaryColor;
+    final backgroundColor = themeProvider.backgroundColor;
+    final textColor = themeProvider.textColor;
+    
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: backgroundColor,
       appBar: AppBar(
         title: Row(
           children: [
+            // Cute robot logo
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.orange.shade400, Colors.pink.shade400],
-                ),
+                color: textOnPrimary,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.smart_toy, color: Colors.white, size: 24),
+              child: Text(
+                '🤖',
+                style: const TextStyle(fontSize: 20),
+              ),
             ),
             const SizedBox(width: 12),
-            const Column(
+            Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
@@ -305,6 +515,7 @@ class _GoBuddyScreenState extends State<GoBuddyScreen> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
+                    color: textOnPrimary,
                   ),
                 ),
                 Text(
@@ -312,15 +523,16 @@ class _GoBuddyScreenState extends State<GoBuddyScreen> {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.normal,
+                    color: textOnPrimary.withOpacity(0.8),
                   ),
                 ),
               ],
             ),
           ],
         ),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 1,
+        backgroundColor: primaryColor,
+        foregroundColor: textOnPrimary,
+        elevation: 0,
         automaticallyImplyLeading: false,
       ),
       body: Column(
@@ -344,7 +556,7 @@ class _GoBuddyScreenState extends State<GoBuddyScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: themeProvider.surfaceColor,
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.05),
@@ -360,17 +572,18 @@ class _GoBuddyScreenState extends State<GoBuddyScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
-                        color: Colors.grey[100],
+                        color: backgroundColor,
                         borderRadius: BorderRadius.circular(25),
+                        border: Border.all(color: primaryColor.withOpacity(0.3)),
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.camera_alt, color: Colors.grey[500], size: 20),
+                          Icon(Icons.camera_alt, color: textColor.withOpacity(0.5), size: 20),
                           const SizedBox(width: 12),
                           Text(
                             'Snap a place to learn about it...',
                             style: TextStyle(
-                              color: Colors.grey[500],
+                              color: textColor.withOpacity(0.5),
                               fontSize: 14,
                             ),
                           ),
@@ -384,21 +597,19 @@ class _GoBuddyScreenState extends State<GoBuddyScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.orange.shade400, Colors.pink.shade400],
-                        ),
+                        color: primaryColor,
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.orange.withOpacity(0.4),
+                            color: primaryColor.withOpacity(0.4),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           ),
                         ],
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.add_a_photo,
-                        color: Colors.white,
+                        color: textOnPrimary,
                         size: 24,
                       ),
                     ),
@@ -413,6 +624,10 @@ class _GoBuddyScreenState extends State<GoBuddyScreen> {
   }
 
   Widget _buildMessageBubble(ChatMessage message) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final surfaceColor = themeProvider.surfaceColor;
+    final textColor = themeProvider.textColor;
+    final primaryColor = themeProvider.primaryColor;
     final isUser = message.isUser;
 
     return Padding(
@@ -425,12 +640,10 @@ class _GoBuddyScreenState extends State<GoBuddyScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.orange.shade400, Colors.pink.shade400],
-                ),
+                color: primaryColor,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.smart_toy, color: Colors.white, size: 20),
+              child: const Text('🤖', style: TextStyle(fontSize: 16)),
             ),
             const SizedBox(width: 8),
           ],
@@ -443,7 +656,7 @@ class _GoBuddyScreenState extends State<GoBuddyScreen> {
                   ? const EdgeInsets.all(4)
                   : const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: isUser ? Colors.blue.shade500 : Colors.white,
+                color: isUser ? primaryColor : surfaceColor,
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(20),
                   topRight: const Radius.circular(20),
@@ -471,7 +684,7 @@ class _GoBuddyScreenState extends State<GoBuddyScreen> {
                   : Text(
                       message.text ?? '',
                       style: TextStyle(
-                        color: isUser ? Colors.white : Colors.black87,
+                        color: textColor,
                         fontSize: 15,
                         height: 1.4,
                       ),
@@ -482,8 +695,8 @@ class _GoBuddyScreenState extends State<GoBuddyScreen> {
             const SizedBox(width: 8),
             CircleAvatar(
               radius: 16,
-              backgroundColor: Colors.blue.shade100,
-              child: Icon(Icons.person, size: 18, color: Colors.blue.shade700),
+              backgroundColor: primaryColor.withOpacity(0.2),
+              child: Icon(Icons.person, size: 18, color: primaryColor),
             ),
           ],
         ],

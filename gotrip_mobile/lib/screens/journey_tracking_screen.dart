@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../services/journey_service.dart';
 import '../services/location_services.dart';
+import '../providers/theme_provider.dart';
 
 class JourneyTrackingScreen extends StatefulWidget {
   final Map<String, dynamic> tripPlan;
@@ -284,13 +286,19 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
   Widget build(BuildContext context) {
     final dailyItineraries = widget.tripPlan['daily_itineraries'] as List? ?? [];
     final overallProgress = _calculateOverallProgress();
+    final themeProvider = context.watch<ThemeProvider>();
+    final primaryColor = themeProvider.primaryColor;
+    final textOnPrimary = themeProvider.textOnPrimaryColor;
+    final backgroundColor = themeProvider.backgroundColor;
+    final textColor = themeProvider.textColor;
 
     return Scaffold(
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: const Text('Journey Tracker'),
+        title: Text('Journey Tracker', style: TextStyle(color: textOnPrimary, fontWeight: FontWeight.bold)),
         elevation: 0,
-        backgroundColor: Colors.blue.shade600,
-        foregroundColor: Colors.white,
+        backgroundColor: primaryColor,
+        foregroundColor: textOnPrimary,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
@@ -299,18 +307,14 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(color: primaryColor))
           : Column(
               children: [
                 // Overall Progress Header
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.blue.shade600, Colors.purple.shade500],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                    color: primaryColor,
                   ),
                   child: Column(
                     children: [
@@ -323,8 +327,8 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
                               children: [
                                 Text(
                                   widget.tripPlan['trip_name'] ?? 'Your Journey',
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: textOnPrimary,
                                     fontSize: 22,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -335,7 +339,7 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
                                 Text(
                                   '${widget.tripPlan['city_name']} • ${widget.tripPlan['duration_days']} days',
                                   style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.8),
+                                    color: textOnPrimary.withOpacity(0.8),
                                     fontSize: 14,
                                   ),
                                 ),
@@ -343,28 +347,20 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
                             ),
                           ),
                           const SizedBox(width: 16),
-                          SizedBox(
-                            width: 70,
-                            height: 70,
-                            child: Stack(
-                              children: [
-                                CircularProgressIndicator(
-                                  value: overallProgress,
-                                  strokeWidth: 8,
-                                  backgroundColor: Colors.white.withValues(alpha: 0.3),
-                                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                                ),
-                                Center(
-                                  child: Text(
-                                    '${(overallProgress * 100).toInt()}%',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                          // Percentage text only (no circular progress)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: textOnPrimary.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              '${(overallProgress * 100).toInt()}%',
+                              style: TextStyle(
+                                color: textOnPrimary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
                             ),
                           ),
                         ],
@@ -375,8 +371,8 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
                         child: LinearProgressIndicator(
                           value: overallProgress,
                           minHeight: 10,
-                          backgroundColor: Colors.white.withValues(alpha: 0.3),
-                          valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                          backgroundColor: textOnPrimary.withOpacity(0.3),
+                          valueColor: AlwaysStoppedAnimation<Color>(textOnPrimary),
                         ),
                       ),
                     ],
@@ -415,7 +411,25 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
                       final day = dayData['day'] ?? (index + 1);
                       final places = (dayData['destinations'] as List? ?? []);
                       final distance = (dayData['total_distance'] ?? 0) as num;
-                      final budget = (dayData['estimated_budget'] ?? 0) as num;
+                      
+                      // Calculate total budget including entry fees, travel, and accommodation
+                      double totalDayBudget = 0;
+                      
+                      // Sum up all destination entry costs
+                      for (var place in places) {
+                        totalDayBudget += (place['estimated_cost'] ?? place['cost_per_day'] ?? 0).toDouble();
+                      }
+                      
+                      // Add travel cost (approximate based on distance - ₹5 per km)
+                      final travelCost = distance * 5;
+                      totalDayBudget += travelCost.toDouble();
+                      
+                      // Add accommodation cost (approximate ₹1000 per day, except last day)
+                      if (index < dailyItineraries.length - 1) {
+                        totalDayBudget += 1000;
+                      }
+                      
+                      final budget = totalDayBudget;
                       final dayProgress = _calculateDayProgress(index, places.length);
                       final isCompleted = dayProgress == 1.0;
 
@@ -447,6 +461,11 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
     required bool isCompleted,
     required bool isLastDay,
   }) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final primaryColor = themeProvider.primaryColor;
+    final surfaceColor = themeProvider.surfaceColor;
+    final textColor = themeProvider.textColor;
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -454,10 +473,10 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: isCompleted ? Colors.green.shade50 : Colors.blue.shade50,
+            color: isCompleted ? Colors.green.withOpacity(0.2) : surfaceColor,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isCompleted ? Colors.green.shade200 : Colors.blue.shade200,
+              color: isCompleted ? Colors.green : primaryColor,
             ),
           ),
           child: Column(
@@ -471,7 +490,7 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: isCompleted ? Colors.green : Colors.blue,
+                          color: isCompleted ? Colors.green : primaryColor,
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
@@ -489,14 +508,14 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: isCompleted ? Colors.green.shade700 : Colors.blue.shade700,
+                              color: isCompleted ? Colors.green : textColor,
                             ),
                           ),
                           Text(
                             '${places.length} destinations • ${distance.toStringAsFixed(1)} km',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey.shade600,
+                              color: textColor.withOpacity(0.6),
                             ),
                           ),
                         ],
@@ -507,13 +526,13 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.orange.shade100,
+                        color: primaryColor.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
                         '₹${budget.toStringAsFixed(0)}',
                         style: TextStyle(
-                          color: Colors.orange.shade800,
+                          color: primaryColor,
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
                         ),
@@ -527,9 +546,9 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
                 child: LinearProgressIndicator(
                   value: dayProgress,
                   minHeight: 6,
-                  backgroundColor: Colors.grey.shade200,
+                  backgroundColor: textColor.withOpacity(0.2),
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    isCompleted ? Colors.green : Colors.blue,
+                    isCompleted ? Colors.green : primaryColor,
                   ),
                 ),
               ),
@@ -538,7 +557,7 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
                 '${visitedDestinations[dayIndex]!.length}/${places.length} completed',
                 style: TextStyle(
                   fontSize: 10,
-                  color: Colors.grey.shade600,
+                  color: textColor.withOpacity(0.6),
                 ),
               ),
             ],
@@ -582,6 +601,10 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
     required bool isExpanded,
     required bool isLast,
   }) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final primaryColor = themeProvider.primaryColor;
+    final surfaceColor = themeProvider.surfaceColor;
+    final textColor = themeProvider.textColor;
     final cost = place['estimated_cost'] ?? place['cost_per_day'] ?? 0;
 
     return Column(
@@ -595,7 +618,7 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
                 Container(
                   width: 2,
                   height: 20,
-                  color: isVisited ? Colors.green : Colors.grey.shade300,
+                  color: isVisited ? Colors.green : textColor.withOpacity(0.3),
                 ),
                 GestureDetector(
                   onTap: () => _toggleVisited(dayIndex, destIndex),
@@ -603,10 +626,10 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
                     width: 28,
                     height: 28,
                     decoration: BoxDecoration(
-                      color: isVisited ? Colors.green : Colors.white,
+                      color: isVisited ? Colors.green : surfaceColor,
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: isVisited ? Colors.green : Colors.grey.shade400,
+                        color: isVisited ? Colors.green : textColor.withOpacity(0.4),
                         width: 2,
                       ),
                     ),
@@ -619,7 +642,7 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
                   Container(
                     width: 2,
                     height: isExpanded ? 10 : 30,
-                    color: isVisited ? Colors.green : Colors.grey.shade300,
+                    color: isVisited ? Colors.green : textColor.withOpacity(0.3),
                   ),
               ],
             ),
@@ -636,10 +659,10 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: isVisited ? Colors.green.shade50 : Colors.white,
+                          color: isVisited ? Colors.green.withOpacity(0.2) : surfaceColor,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                            color: isVisited ? Colors.green.shade200 : Colors.grey.shade200,
+                            color: isVisited ? Colors.green : primaryColor.withOpacity(0.5),
                           ),
                           boxShadow: [
                             BoxShadow(
@@ -661,18 +684,18 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
                                       fontWeight: FontWeight.bold,
                                       fontSize: 14,
                                       decoration: isVisited ? TextDecoration.lineThrough : null,
-                                      color: isVisited ? Colors.grey.shade600 : Colors.black87,
+                                      color: isVisited ? textColor.withOpacity(0.6) : textColor,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
                                   Row(
                                     children: [
-                                      Icon(Icons.location_on, size: 12, color: Colors.grey.shade500),
+                                      Icon(Icons.location_on, size: 12, color: primaryColor),
                                       const SizedBox(width: 4),
                                       Expanded(
                                         child: Text(
                                           '${place['city'] ?? ''}, ${place['state'] ?? ''}',
-                                          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                          style: TextStyle(fontSize: 11, color: textColor.withOpacity(0.6)),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
@@ -685,7 +708,7 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w600,
-                                        color: Colors.green.shade700,
+                                        color: Colors.green,
                                       ),
                                     ),
                                   ],
@@ -723,6 +746,9 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
   }
 
   Widget _buildExpandedSection(Map<String, dynamic> place, int dayIndex, int destIndex) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final surfaceColor = themeProvider.surfaceColor;
+    final textColor = themeProvider.textColor;
     final cacheKey = '${dayIndex}_$destIndex';
     final data = _expandedDataCache[cacheKey];
     
@@ -730,9 +756,9 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
       margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: surfaceColor,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: textColor.withOpacity(0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -743,21 +769,21 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
             title: 'Weather Alert',
             content: _buildWeatherSection(data),
           ),
-          const Divider(height: 24),
+          Divider(height: 24, color: textColor.withOpacity(0.2)),
           _buildInfoSection(
             icon: Icons.restaurant,
             iconColor: Colors.orange,
             title: 'Nearby Restaurants',
             content: _buildRestaurantsSection(data),
           ),
-          const Divider(height: 24),
+          Divider(height: 24, color: textColor.withOpacity(0.2)),
           _buildInfoSection(
             icon: Icons.hotel,
             iconColor: Colors.purple,
             title: 'Accommodation',
             content: _buildHotelsSection(data),
           ),
-          const Divider(height: 24),
+          Divider(height: 24, color: textColor.withOpacity(0.2)),
           _buildInfoSection(
             icon: Icons.attractions,
             iconColor: Colors.green,
@@ -770,6 +796,9 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
   }
 
   Widget _buildWeatherSection(_ExpandedSectionData? data) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final textColor = themeProvider.textColor;
+    
     if (data == null || data.isLoading) {
       return _buildLoadingContent('Fetching weather data...');
     }
@@ -782,7 +811,7 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: weather.alertColor.withOpacity(0.1),
+        color: weather.alertColor.withOpacity(0.15),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: weather.alertColor.withOpacity(0.3)),
       ),
@@ -808,7 +837,7 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
           const SizedBox(height: 8),
           Text(
             weather.message,
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade700, height: 1.4),
+            style: TextStyle(fontSize: 12, color: textColor.withOpacity(0.8), height: 1.4),
           ),
         ],
       ),
@@ -816,6 +845,10 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
   }
 
   Widget _buildRestaurantsSection(_ExpandedSectionData? data) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final surfaceColor = themeProvider.surfaceColor;
+    final textColor = themeProvider.textColor;
+    
     if (data == null || data.isLoading) {
       return _buildLoadingContent('Finding nearby restaurants...');
     }
@@ -834,16 +867,16 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: surfaceColor,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey.shade200),
+          border: Border.all(color: textColor.withOpacity(0.2)),
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: restaurant.isVegetarian ? Colors.green.shade50 : Colors.orange.shade50,
+                color: restaurant.isVegetarian ? Colors.green.withOpacity(0.2) : Colors.orange.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Icon(
@@ -862,7 +895,7 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
                       Expanded(
                         child: Text(
                           restaurant.name,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textColor),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -883,7 +916,7 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
                   const SizedBox(height: 2),
                   Text(
                     '${restaurant.cuisine} • ${restaurant.distanceText}',
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                    style: TextStyle(fontSize: 11, color: textColor.withOpacity(0.6)),
                   ),
                   if (restaurant.rating != null) ...[
                     const SizedBox(height: 2),
@@ -891,7 +924,7 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
                       children: [
                         Icon(Icons.star, color: Colors.amber, size: 12),
                         Text(' ${restaurant.rating!.toStringAsFixed(1)}', 
-                          style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+                          style: TextStyle(fontSize: 11, color: textColor.withOpacity(0.7))),
                       ],
                     ),
                   ],
@@ -905,6 +938,10 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
   }
 
   Widget _buildHotelsSection(_ExpandedSectionData? data) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final surfaceColor = themeProvider.surfaceColor;
+    final textColor = themeProvider.textColor;
+    
     if (data == null || data.isLoading) {
       return _buildLoadingContent('Finding nearby accommodations...');
     }
@@ -923,16 +960,16 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: surfaceColor,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey.shade200),
+          border: Border.all(color: textColor.withOpacity(0.2)),
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.purple.shade50,
+                color: Colors.purple.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Icon(
@@ -949,7 +986,7 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
                 children: [
                   Text(
                     hotel.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textColor),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -959,18 +996,18 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.purple.shade100,
+                          color: Colors.purple.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           hotel.type,
-                          style: TextStyle(fontSize: 9, color: Colors.purple.shade700, fontWeight: FontWeight.bold),
+                          style: TextStyle(fontSize: 9, color: Colors.purple, fontWeight: FontWeight.bold),
                         ),
                       ),
                       const SizedBox(width: 6),
                       Text(
                         hotel.distanceText,
-                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                        style: TextStyle(fontSize: 11, color: textColor.withOpacity(0.6)),
                       ),
                     ],
                   ),
@@ -986,7 +1023,7 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
                         if (hotel.estimatedPrice != null)
                           Text(
                             '~${hotel.priceText}',
-                            style: TextStyle(fontSize: 11, color: Colors.green.shade700, fontWeight: FontWeight.w500),
+                            style: TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.w500),
                           ),
                       ],
                     ),
@@ -1001,6 +1038,10 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
   }
 
   Widget _buildAttractionsSection(_ExpandedSectionData? data) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final surfaceColor = themeProvider.surfaceColor;
+    final textColor = themeProvider.textColor;
+    
     if (data == null || data.isLoading) {
       return _buildLoadingContent('Finding nearby attractions...');
     }
@@ -1020,9 +1061,9 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
       children: attractions.map((attraction) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.green.shade50,
+          color: surfaceColor,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.green.shade200),
+          border: Border.all(color: Colors.green.withOpacity(0.3)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1035,11 +1076,11 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
               children: [
                 Text(
                   attraction.name,
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green.shade800),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor),
                 ),
                 Text(
                   '${attraction.type} • ${attraction.distanceText}',
-                  style: TextStyle(fontSize: 10, color: Colors.green.shade600),
+                  style: TextStyle(fontSize: 10, color: textColor.withOpacity(0.6)),
                 ),
               ],
             ),
@@ -1050,25 +1091,30 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
   }
 
   Widget _buildLoadingContent(String text) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final surfaceColor = themeProvider.surfaceColor;
+    final textColor = themeProvider.textColor;
+    final primaryColor = themeProvider.primaryColor;
+    
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: surfaceColor,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: textColor.withOpacity(0.2)),
       ),
       child: Row(
         children: [
           SizedBox(
             width: 20,
             height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blue.shade400),
+            child: CircularProgressIndicator(strokeWidth: 2, color: primaryColor),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               text,
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+              style: TextStyle(color: textColor.withOpacity(0.6), fontSize: 12),
             ),
           ),
         ],
@@ -1077,35 +1123,42 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
   }
 
   Widget _buildErrorContent(String text) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final textColor = themeProvider.textColor;
+    
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.red.shade50,
+        color: Colors.red.withOpacity(0.15),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.red.shade200),
+        border: Border.all(color: Colors.red.withOpacity(0.3)),
       ),
       child: Row(
         children: [
-          Icon(Icons.error_outline, color: Colors.red.shade400, size: 20),
+          Icon(Icons.error_outline, color: Colors.red, size: 20),
           const SizedBox(width: 8),
-          Text(text, style: TextStyle(color: Colors.red.shade700, fontSize: 12)),
+          Text(text, style: TextStyle(color: textColor, fontSize: 12)),
         ],
       ),
     );
   }
 
   Widget _buildEmptyContent(String text, IconData icon) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final surfaceColor = themeProvider.surfaceColor;
+    final textColor = themeProvider.textColor;
+    
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: surfaceColor,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         children: [
-          Icon(icon, color: Colors.grey.shade400, size: 20),
+          Icon(icon, color: textColor.withOpacity(0.4), size: 20),
           const SizedBox(width: 8),
-          Text(text, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+          Text(text, style: TextStyle(color: textColor.withOpacity(0.6), fontSize: 12)),
         ],
       ),
     );

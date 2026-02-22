@@ -4,6 +4,7 @@ import '../utils/app_constants.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/custom_button.dart';
 import '../providers/auth_provider.dart';
+import '../providers/theme_provider.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({Key? key}) : super(key: key);
@@ -65,21 +66,18 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final primaryColor = themeProvider.primaryColor;
+    final backgroundColor = themeProvider.backgroundColor;
+    final textColor = themeProvider.textColor;
+    final surfaceColor = themeProvider.surfaceColor;
+    
     return Scaffold(
       body: Stack(
         children: [
-          // Gradient background
+          // Background
           Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppColors.primary,
-                  AppColors.primaryDark,
-                ],
-              ),
-            ),
+            color: primaryColor,
           ),
           // Content
           SafeArea(
@@ -118,7 +116,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     Container(
                       padding: const EdgeInsets.all(AppSpacing.lg),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: surfaceColor,
                         borderRadius: BorderRadius.circular(AppRadius.xl),
                       ),
                       child: Form(
@@ -128,13 +126,13 @@ class _SignupScreenState extends State<SignupScreen> {
                           children: [
                             Text(
                               'Join Our Community',
-                              style: Theme.of(context).textTheme.displaySmall,
+                              style: Theme.of(context).textTheme.displaySmall?.copyWith(color: textColor),
                             ),
                             const SizedBox(height: AppSpacing.sm),
                             Text(
                               'Create an account to start exploring amazing trips',
                               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: AppColors.textSecondary,
+                                color: textColor.withOpacity(0.6),
                               ),
                             ),
                             const SizedBox(height: AppSpacing.lg),
@@ -258,16 +256,16 @@ class _SignupScreenState extends State<SignupScreen> {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const Text(
+                                  Text(
                                     'Already have an account? ',
-                                    style: TextStyle(color: AppColors.textSecondary),
+                                    style: TextStyle(color: textColor.withOpacity(0.6)),
                                   ),
                                   GestureDetector(
                                     onTap: () => Navigator.pop(context),
-                                    child: const Text(
+                                    child: Text(
                                       'Login',
                                       style: TextStyle(
-                                        color: AppColors.primary,
+                                        color: primaryColor,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),

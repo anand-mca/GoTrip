@@ -4,6 +4,7 @@ import '../utils/app_constants.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/custom_button.dart';
 import '../providers/auth_provider.dart';
+import '../providers/theme_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -57,21 +58,18 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final primaryColor = themeProvider.primaryColor;
+    final backgroundColor = themeProvider.backgroundColor;
+    final textColor = themeProvider.textColor;
+    final surfaceColor = themeProvider.surfaceColor;
+    
     return Scaffold(
       body: Stack(
         children: [
-          // Gradient background
+          // Background
           Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppColors.primary,
-                  AppColors.primaryDark,
-                ],
-              ),
-            ),
+            color: primaryColor,
           ),
           // Content
           SafeArea(
@@ -123,7 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Container(
                       padding: const EdgeInsets.all(AppSpacing.lg),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: surfaceColor,
                         borderRadius: BorderRadius.circular(AppRadius.xl),
                       ),
                       child: Form(
@@ -133,13 +131,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           children: [
                             Text(
                               'Welcome Back',
-                              style: Theme.of(context).textTheme.displaySmall,
+                              style: Theme.of(context).textTheme.displaySmall?.copyWith(color: textColor),
                             ),
                             const SizedBox(height: AppSpacing.sm),
                             Text(
                               'Login to continue your journey',
                               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: AppColors.textSecondary,
+                                color: textColor.withOpacity(0.6),
                               ),
                             ),
                             const SizedBox(height: AppSpacing.lg),
@@ -204,16 +202,16 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const Text(
+                                  Text(
                                     "Don't have an account? ",
-                                    style: TextStyle(color: AppColors.textSecondary),
+                                    style: TextStyle(color: textColor.withOpacity(0.6)),
                                   ),
                                   GestureDetector(
                                     onTap: () => Navigator.pushNamed(context, '/signup'),
-                                    child: const Text(
+                                    child: Text(
                                       'Sign Up',
                                       style: TextStyle(
-                                        color: AppColors.primary,
+                                        color: primaryColor,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),

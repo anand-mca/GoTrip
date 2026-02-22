@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/trip_planner_service.dart';
 import '../services/journey_service.dart';
 import '../providers/destination_provider.dart';
+import '../providers/theme_provider.dart';
 import '../models/destination_model.dart';
 import 'journey_tracking_screen.dart';
 
@@ -361,8 +362,21 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final primaryColor = themeProvider.primaryColor;
+    final textOnPrimary = themeProvider.textOnPrimaryColor;
+    final backgroundColor = themeProvider.backgroundColor;
+    final textColor = themeProvider.textColor;
+    final surfaceColor = themeProvider.surfaceColor;
+    
     return Scaffold(
-      appBar: AppBar(title: const Text('Plan Your Smart Trip'), elevation: 0),
+      backgroundColor: backgroundColor,
+      appBar: AppBar(
+        title: Text('Plan Your Smart Trip', style: TextStyle(color: textOnPrimary, fontWeight: FontWeight.bold)),
+        elevation: 0,
+        backgroundColor: primaryColor,
+        foregroundColor: textOnPrimary,
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -372,7 +386,7 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
             children: [
               // Dates Section
               Text('Travel Dates',
-                  style: Theme.of(context).textTheme.headlineSmall),
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: textColor)),
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -380,11 +394,15 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
                     child: TextFormField(
                       controller: _startDateController,
                       readOnly: true,
+                      style: TextStyle(color: textColor),
                       decoration: InputDecoration(
                         hintText: 'Start Date',
-                        suffixIcon: const Icon(Icons.calendar_today),
+                        suffixIcon: Icon(Icons.calendar_today, color: primaryColor),
                         border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8)),
+                        focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: primaryColor)),
                       ),
                       validator: (value) =>
                           value?.isEmpty ?? true ? 'Required' : null,
@@ -396,11 +414,15 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
                     child: TextFormField(
                       controller: _endDateController,
                       readOnly: true,
+                      style: TextStyle(color: textColor),
                       decoration: InputDecoration(
                         hintText: 'End Date',
-                        suffixIcon: const Icon(Icons.calendar_today),
+                        suffixIcon: Icon(Icons.calendar_today, color: primaryColor),
                         border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8)),
+                        focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: primaryColor)),
                       ),
                       validator: (value) =>
                           value?.isEmpty ?? true ? 'Required' : null,
@@ -413,16 +435,20 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
 
               // Budget Section
               Text('Budget (₹)',
-                  style: Theme.of(context).textTheme.headlineSmall),
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: textColor)),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _budgetController,
                 keyboardType: TextInputType.number,
+                style: TextStyle(color: textColor),
                 decoration: InputDecoration(
                   hintText: 'Enter your total budget',
                   prefixText: '₹ ',
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8)),
+                  focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: primaryColor)),
                 ),
                 validator: (value) {
                   if (value?.isEmpty ?? true) return 'Required';
@@ -435,15 +461,19 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
 
               // Start Location
               Text('Based City',
-                  style: Theme.of(context).textTheme.headlineSmall),
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: textColor)),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _startLocationController,
+                style: TextStyle(color: textColor),
                 decoration: InputDecoration(
                   hintText: 'Enter your starting city',
-                  prefixIcon: const Icon(Icons.location_on),
+                  prefixIcon: Icon(Icons.location_on, color: primaryColor),
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8)),
+                  focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: primaryColor)),
                 ),
                 validator: (value) =>
                     value?.isEmpty ?? true ? 'Required' : null,
@@ -527,31 +557,27 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.blue.shade400, Colors.purple.shade400],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                    color: primaryColor,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
                           Icon(Icons.check_circle,
-                              color: Colors.white, size: 28),
-                          SizedBox(width: 8),
+                              color: textOnPrimary, size: 28),
+                          const SizedBox(width: 8),
                           Text(
                             'Optimized Trip Plan',
                             style: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.white),
+                                color: textOnPrimary),
                           ),
                         ],
                       ),
-                      const Divider(color: Colors.white70, height: 24),
+                      Divider(color: textOnPrimary.withOpacity(0.5), height: 24),
                       _buildSummaryRow(
                           '📍 Starting City', '${tripPlan!['city_name']}'),
                       _buildSummaryRow(
@@ -570,9 +596,9 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
                 const SizedBox(height: 24),
 
                 // Daily Itineraries Section
-                const Text('📋 Your Itinerary',
+                Text('📋 Your Itinerary',
                     style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
                 const SizedBox(height: 12),
                 ..._buildDailyItineraries(),
 
@@ -617,21 +643,21 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.grey[100],
+                      color: surfaceColor,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey[300]!),
+                      border: Border.all(color: textColor.withOpacity(0.2)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('🤖 Trip Planning Algorithm',
+                        Text('🤖 Trip Planning Algorithm',
                             style: TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 14)),
+                                fontWeight: FontWeight.bold, fontSize: 14, color: textColor)),
                         const SizedBox(height: 8),
                         Text(tripPlan!['algorithm_explanation'] ?? '',
                             style: TextStyle(
                                 fontSize: 11,
-                                color: Colors.grey[700],
+                                color: textColor.withOpacity(0.7),
                                 height: 1.5)),
                       ],
                     ),
@@ -646,9 +672,14 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
   }
 
   List<Widget> _buildDailyItineraries() {
+    final themeProvider = context.watch<ThemeProvider>();
+    final surfaceColor = themeProvider.surfaceColor;
+    final textColor = themeProvider.textColor;
+    final primaryColor = themeProvider.primaryColor;
+    
     final dailyItineraries = tripPlan!['daily_itineraries'] as List? ?? [];
     if (dailyItineraries.isEmpty) {
-      return [const Text('No itineraries available')];
+      return [Text('No itineraries available', style: TextStyle(color: textColor))];
     }
 
     return dailyItineraries.asMap().entries.map<Widget>((entry) {
@@ -675,9 +706,9 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.blue.withOpacity(0.3)),
+          border: Border.all(color: primaryColor.withOpacity(0.3)),
           borderRadius: BorderRadius.circular(8),
-          color: Colors.blue.withOpacity(0.05),
+          color: surfaceColor,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -688,14 +719,14 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
               children: [
                 Text(
                   'Day $day',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 16),
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 16, color: textColor),
                 ),
                 Text(
                   'Distance: ${distance.toStringAsFixed(1)} km',
                   style: TextStyle(
                       fontSize: 12,
-                      color: Colors.grey[700],
+                      color: textColor.withOpacity(0.7),
                       fontWeight: FontWeight.w500),
                 ),
               ],
@@ -707,7 +738,7 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
                   'Budget: ₹${displayBudget.toStringAsFixed(0)}',
                   style: TextStyle(
                       fontSize: 12,
-                      color: Colors.orange[700],
+                      color: primaryColor,
                       fontWeight: FontWeight.w500),
                 ),
               ),
@@ -731,9 +762,9 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: textColor.withOpacity(0.05),
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                    border: Border.all(color: primaryColor.withOpacity(0.2)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -741,8 +772,8 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.location_on,
-                              size: 14, color: Colors.blue),
+                          Icon(Icons.location_on,
+                              size: 14, color: primaryColor),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Column(
@@ -750,9 +781,10 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
                               children: [
                                 Text(
                                   placeData['name'] ?? 'Unknown',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 13),
+                                      fontSize: 13,
+                                      color: textColor),
                                 ),
                                 if (placeData['city'] != null ||
                                     placeData['state'] != null)
@@ -762,7 +794,7 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
                                       placeData['state']
                                     ].where((e) => e != null).join(', ')}',
                                     style: TextStyle(
-                                        fontSize: 10, color: Colors.grey[600]),
+                                        fontSize: 10, color: textColor.withOpacity(0.6)),
                                   ),
                                 if (placeData['category'] != null)
                                   Padding(
@@ -771,13 +803,13 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: Colors.blue.withOpacity(0.1),
+                                        color: primaryColor.withOpacity(0.2),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
                                         '🏷️ ${placeData['category']}',
-                                        style: const TextStyle(
-                                            fontSize: 9, color: Colors.blue),
+                                        style: TextStyle(
+                                            fontSize: 9, color: primaryColor),
                                       ),
                                     ),
                                   ),
@@ -805,7 +837,7 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                                fontSize: 10, color: Colors.grey[600]),
+                                fontSize: 10, color: textColor.withOpacity(0.6)),
                           ),
                         ),
                       Padding(
@@ -814,7 +846,7 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
                           distanceFromPrevious,
                           style: TextStyle(
                               fontSize: 9,
-                              color: Colors.orange[700],
+                              color: primaryColor,
                               fontStyle: FontStyle.italic),
                         ),
                       ),
@@ -826,7 +858,7 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
                             style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.green[700]),
+                                color: Colors.green),
                           ),
                         ),
                     ],
@@ -849,10 +881,10 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
                     });
                   },
                   icon:
-                      Icon(Icons.add_circle, color: Colors.blue[600], size: 20),
+                      Icon(Icons.add_circle, color: primaryColor, size: 20),
                   label: Text(
                     'Add Destination',
-                    style: TextStyle(color: Colors.blue[600], fontSize: 12),
+                    style: TextStyle(color: primaryColor, fontSize: 12),
                   ),
                 ),
               ),
@@ -863,6 +895,12 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
   }
 
   Widget _buildDestinationSearchField(int dayIndex) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final surfaceColor = themeProvider.surfaceColor;
+    final textColor = themeProvider.textColor;
+    final primaryColor = themeProvider.primaryColor;
+    final backgroundColor = themeProvider.backgroundColor;
+    
     return Consumer<DestinationProvider>(
       builder: (context, provider, _) {
         final searchText = _destinationSearchController.text.toLowerCase();
@@ -884,24 +922,24 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
                     controller: _destinationSearchController,
                     decoration: InputDecoration(
                       hintText: 'Search destination...',
-                      hintStyle: const TextStyle(fontSize: 12),
-                      prefixIcon: const Icon(Icons.search, size: 18),
+                      hintStyle: TextStyle(fontSize: 12, color: textColor.withOpacity(0.5)),
+                      prefixIcon: Icon(Icons.search, size: 18, color: textColor.withOpacity(0.5)),
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 8),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: Colors.grey[300]!),
+                        borderSide: BorderSide(color: textColor.withOpacity(0.2)),
                       ),
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: surfaceColor,
                     ),
-                    style: const TextStyle(fontSize: 12),
+                    style: TextStyle(fontSize: 12, color: textColor),
                     onChanged: (_) => setState(() {}),
                   ),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.grey),
+                  icon: Icon(Icons.close, color: textColor.withOpacity(0.6)),
                   onPressed: () {
                     setState(() {
                       _isSearching = false;
@@ -916,9 +954,9 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
               Container(
                 margin: const EdgeInsets.only(top: 4),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: surfaceColor,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey[300]!),
+                  border: Border.all(color: textColor.withOpacity(0.2)),
                 ),
                 child: Column(
                   children: filteredDestinations.map((destination) {
@@ -928,8 +966,8 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
                       leading: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.location_on,
-                              size: 18, color: Colors.blue),
+                          Icon(Icons.location_on,
+                              size: 18, color: primaryColor),
                           if (isFavorite)
                             const Padding(
                               padding: EdgeInsets.only(left: 4),
@@ -939,12 +977,12 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
                         ],
                       ),
                       title: Text(destination.title,
-                          style: const TextStyle(fontSize: 12)),
+                          style: TextStyle(fontSize: 12, color: textColor)),
                       subtitle: Text(destination.location,
-                          style: const TextStyle(fontSize: 10)),
+                          style: TextStyle(fontSize: 10, color: textColor.withOpacity(0.6))),
                       trailing: Text('₹${destination.price.toStringAsFixed(0)}',
                           style: TextStyle(
-                              fontSize: 10, color: Colors.green[700])),
+                              fontSize: 10, color: Colors.green)),
                       onTap: () => _addDestination(dayIndex, destination),
                     );
                   }).toList(),

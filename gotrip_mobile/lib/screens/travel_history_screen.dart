@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../services/journey_service.dart';
+import '../providers/theme_provider.dart';
 
 class TravelHistoryScreen extends StatefulWidget {
   const TravelHistoryScreen({Key? key}) : super(key: key);
@@ -43,38 +45,46 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final primaryColor = themeProvider.primaryColor;
+    final textOnPrimary = themeProvider.textOnPrimaryColor;
+    final backgroundColor = themeProvider.backgroundColor;
+    final textColor = themeProvider.textColor;
+    
     return Scaffold(
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: const Text('Travel History'),
+        title: Text('Travel History', style: TextStyle(color: textOnPrimary, fontWeight: FontWeight.bold)),
         elevation: 0,
-        backgroundColor: Colors.purple.shade600,
-        foregroundColor: Colors.white,
+        backgroundColor: primaryColor,
+        foregroundColor: textOnPrimary,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(color: primaryColor))
           : _error != null
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.error_outline, size: 64, color: Colors.grey.shade400),
+                      Icon(Icons.error_outline, size: 64, color: textColor.withOpacity(0.4)),
                       const SizedBox(height: 16),
-                      Text('Error loading history', style: TextStyle(color: Colors.grey.shade600)),
+                      Text('Error loading history', style: TextStyle(color: textColor.withOpacity(0.6))),
                       const SizedBox(height: 8),
                       ElevatedButton(
                         onPressed: _loadTripHistory,
-                        child: const Text('Retry'),
+                        style: ElevatedButton.styleFrom(backgroundColor: primaryColor),
+                        child: Text('Retry', style: TextStyle(color: textOnPrimary)),
                       ),
                     ],
                   ),
                 )
               : _tripHistory.isEmpty
-                  ? _buildEmptyState()
-                  : _buildHistoryList(),
+                  ? _buildEmptyState(primaryColor, textOnPrimary, textColor)
+                  : _buildHistoryList(primaryColor, textOnPrimary, textColor),
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(Color primaryColor, Color textOnPrimary, Color textColor) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -82,13 +92,13 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.purple.shade50,
+              color: primaryColor.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.history,
               size: 80,
-              color: Colors.purple.shade300,
+              color: primaryColor.withOpacity(0.6),
             ),
           ),
           const SizedBox(height: 24),
@@ -97,7 +107,7 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen> {
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
-              color: Colors.grey.shade700,
+              color: textColor,
             ),
           ),
           const SizedBox(height: 12),
@@ -108,7 +118,7 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen> {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey.shade500,
+                color: textColor.withOpacity(0.5),
               ),
             ),
           ),
@@ -120,8 +130,8 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen> {
             icon: const Icon(Icons.explore),
             label: const Text('Plan Your First Trip'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.purple.shade600,
-              foregroundColor: Colors.white,
+              backgroundColor: primaryColor,
+              foregroundColor: textOnPrimary,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
           ),
@@ -130,21 +140,25 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen> {
     );
   }
 
-  Widget _buildHistoryList() {
+  Widget _buildHistoryList(Color primaryColor, Color textOnPrimary, Color textColor) {
     return RefreshIndicator(
       onRefresh: _loadTripHistory,
+      color: primaryColor,
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: _tripHistory.length,
         itemBuilder: (context, index) {
           final trip = _tripHistory[index];
-          return _buildTripCard(trip);
+          return _buildTripCard(trip, primaryColor, textOnPrimary, textColor);
         },
       ),
     );
   }
 
-  Widget _buildTripCard(Map<String, dynamic> trip) {
+  Widget _buildTripCard(Map<String, dynamic> trip, Color primaryColor, Color textOnPrimary, Color textColor) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final surfaceColor = themeProvider.surfaceColor;
+    
     final tripDays = trip['trip_days'] as List? ?? [];
     final tripName = trip['trip_name'] ?? 'Trip';
     final startDate = trip['start_date'] ?? '';
@@ -168,6 +182,7 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen> {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 2,
+      color: surfaceColor,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         onTap: () => _showTripDetails(trip),
@@ -175,15 +190,11 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header with gradient
+            // Header with solid color
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.purple.shade400, Colors.blue.shade400],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: primaryColor,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(16),
                   topRight: Radius.circular(16),
@@ -194,10 +205,10 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
+                      color: textOnPrimary.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.flight_takeoff, color: Colors.white, size: 24),
+                    child: Icon(Icons.flight_takeoff, color: textOnPrimary, size: 24),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -206,8 +217,8 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen> {
                       children: [
                         Text(
                           tripName,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: textOnPrimary,
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
@@ -215,7 +226,7 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen> {
                         Text(
                           startCity,
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.8),
+                            color: textOnPrimary.withOpacity(0.8),
                             fontSize: 13,
                           ),
                         ),
@@ -225,13 +236,13 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
+                      color: textOnPrimary.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       '${tripDays.length} days',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: textOnPrimary,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -247,9 +258,9 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen> {
                 children: [
                   Row(
                     children: [
-                      _buildDetailChip(Icons.calendar_today, '$startDate to $endDate'),
+                      _buildDetailChip(Icons.calendar_today, '$startDate to $endDate', textColor, surfaceColor),
                       const SizedBox(width: 12),
-                      _buildDetailChip(Icons.place, '$visitedCount/$totalDestinations visited'),
+                      _buildDetailChip(Icons.place, '$visitedCount/$totalDestinations visited', textColor, surfaceColor),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -262,7 +273,7 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen> {
                         'Places Visited:',
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: Colors.grey.shade700,
+                          color: textColor,
                         ),
                       ),
                     ),
@@ -274,20 +285,20 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen> {
                         return Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
-                            color: Colors.green.shade50,
+                            color: Colors.green.withOpacity(0.2),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.green.shade200),
+                            border: Border.all(color: Colors.green.withOpacity(0.3)),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.check_circle, size: 14, color: Colors.green.shade600),
+                              Icon(Icons.check_circle, size: 14, color: Colors.green),
                               const SizedBox(width: 4),
                               Text(
                                 name,
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: Colors.green.shade700,
+                                  color: textColor,
                                 ),
                               ),
                             ],
@@ -299,7 +310,7 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen> {
                       const SizedBox(height: 8),
                       Text(
                         '+${_getVisitedDestinations(tripDays).length - 5} more places',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                        style: TextStyle(fontSize: 12, color: textColor.withOpacity(0.5)),
                       ),
                     ],
                   ],
@@ -314,7 +325,7 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen> {
                       icon: const Icon(Icons.visibility),
                       label: const Text('View Full Journey'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.purple.shade600,
+                        foregroundColor: primaryColor,
                       ),
                     ),
                   ),
@@ -327,21 +338,21 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen> {
     );
   }
 
-  Widget _buildDetailChip(IconData icon, String text) {
+  Widget _buildDetailChip(IconData icon, String text, Color textColor, Color surfaceColor) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: textColor.withOpacity(0.1),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: Colors.grey.shade600),
+          Icon(icon, size: 14, color: textColor.withOpacity(0.6)),
           const SizedBox(width: 4),
           Text(
             text,
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 12, color: textColor.withOpacity(0.6)),
           ),
         ],
       ),
@@ -362,6 +373,11 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen> {
   }
 
   void _showTripDetails(Map<String, dynamic> trip) {
+    final themeProvider = context.read<ThemeProvider>();
+    final backgroundColor = themeProvider.backgroundColor;
+    final textColor = themeProvider.textColor;
+    final primaryColor = themeProvider.primaryColor;
+    
     final tripDays = trip['trip_days'] as List? ?? [];
     tripDays.sort((a, b) => (a['day_number'] ?? 0).compareTo(b['day_number'] ?? 0));
 
@@ -374,9 +390,9 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen> {
         maxChildSize: 0.95,
         minChildSize: 0.5,
         builder: (context, scrollController) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.only(
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(20),
               topRight: Radius.circular(20),
             ),
@@ -389,7 +405,7 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: textColor.withOpacity(0.3),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -399,26 +415,27 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen> {
                 padding: const EdgeInsets.all(20),
                 child: Row(
                   children: [
-                    Icon(Icons.history, color: Colors.purple.shade600),
+                    Icon(Icons.history, color: primaryColor),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         trip['trip_name'] ?? 'Trip Details',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
+                          color: textColor,
                         ),
                       ),
                     ),
                     IconButton(
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
+                      icon: Icon(Icons.close, color: textColor),
                     ),
                   ],
                 ),
               ),
               
-              const Divider(height: 1),
+              Divider(height: 1, color: textColor.withOpacity(0.2)),
               
               // Trip days
               Expanded(
@@ -440,12 +457,18 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen> {
   }
 
   Widget _buildDayCard(Map<String, dynamic> day) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final surfaceColor = themeProvider.surfaceColor;
+    final textColor = themeProvider.textColor;
+    final primaryColor = themeProvider.primaryColor;
+    
     final dayNumber = day['day_number'] ?? 0;
     final destinations = day['trip_destinations'] as List? ?? [];
     destinations.sort((a, b) => (a['visit_order'] ?? 0).compareTo(b['visit_order'] ?? 0));
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
+      color: surfaceColor,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -456,14 +479,14 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.purple.shade100,
+                    color: primaryColor.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     'Day $dayNumber',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: Colors.purple.shade700,
+                      color: primaryColor,
                     ),
                   ),
                 ),
@@ -479,7 +502,7 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen> {
                   children: [
                     Icon(
                       isVisited ? Icons.check_circle : Icons.radio_button_unchecked,
-                      color: isVisited ? Colors.green : Colors.grey.shade400,
+                      color: isVisited ? Colors.green : textColor.withOpacity(0.4),
                       size: 20,
                     ),
                     const SizedBox(width: 12),
@@ -492,14 +515,14 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen> {
                             style: TextStyle(
                               fontWeight: FontWeight.w500,
                               decoration: isVisited ? TextDecoration.lineThrough : null,
-                              color: isVisited ? Colors.grey.shade600 : Colors.black87,
+                              color: isVisited ? textColor.withOpacity(0.6) : textColor,
                             ),
                           ),
                           Text(
                             '${dest['city'] ?? ''}, ${dest['state'] ?? ''}',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey.shade500,
+                              color: textColor.withOpacity(0.5),
                             ),
                           ),
                         ],
@@ -509,14 +532,14 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.green.shade50,
+                          color: Colors.green.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           'Visited',
                           style: TextStyle(
                             fontSize: 10,
-                            color: Colors.green.shade700,
+                            color: Colors.green,
                           ),
                         ),
                       ),

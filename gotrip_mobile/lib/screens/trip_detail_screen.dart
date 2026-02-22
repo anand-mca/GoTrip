@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../utils/app_constants.dart';
 import '../models/trip_model.dart';
 import '../models/destination_model.dart';
 import '../widgets/custom_button.dart';
+import '../providers/theme_provider.dart';
+import '../providers/destination_api_provider.dart';
 
 class TripDetailScreen extends StatefulWidget {
   final dynamic trip; // Can be Trip or Destination
@@ -16,6 +19,60 @@ class TripDetailScreen extends StatefulWidget {
 class _TripDetailScreenState extends State<TripDetailScreen> {
   bool _isSaved = false;
   int _selectedTabIndex = 0;
+  bool _isLoadingDetails = false;
+  Map<String, dynamic>? _apiDestinationDetails;
+  bool _imageLoadError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchDestinationDetails();
+  }
+
+  /// Fetch destination details from API
+  Future<void> _fetchDestinationDetails() async {
+    // Try to get destination ID or name to fetch details
+    if (widget.trip is Destination) {
+      final destination = widget.trip as Destination;
+      // If destination has an ID, fetch from API
+      if (destination.id != null && destination.id!.isNotEmpty) {
+        setState(() => _isLoadingDetails = true);
+        try {
+          final apiProvider = context.read<DestinationAPIProvider>();
+          final details = await apiProvider.getDestinationDetails(destination.id!);
+          if (details.isNotEmpty && mounted) {
+            setState(() {
+              _apiDestinationDetails = details;
+              _isLoadingDetails = false;
+            });
+          } else {
+            setState(() => _isLoadingDetails = false);
+          }
+        } catch (e) {
+          print('Error fetching destination details: $e');
+          setState(() => _isLoadingDetails = false);
+        }
+      }
+    }
+  }
+
+  /// Get category icon based on destination category
+  IconData _getCategoryIcon(String category) {
+    final categoryLower = category.toLowerCase();
+    if (categoryLower.contains('beach')) return Icons.beach_access;
+    if (categoryLower.contains('history') || categoryLower.contains('historical')) return Icons.account_balance;
+    if (categoryLower.contains('adventure')) return Icons.terrain;
+    if (categoryLower.contains('food')) return Icons.restaurant;
+    if (categoryLower.contains('shopping')) return Icons.shopping_bag;
+    if (categoryLower.contains('nature') || categoryLower.contains('wildlife')) return Icons.nature;
+    if (categoryLower.contains('religious') || categoryLower.contains('temple') || categoryLower.contains('spiritual')) return Icons.temple_hindu;
+    if (categoryLower.contains('cultural') || categoryLower.contains('culture')) return Icons.museum;
+    return Icons.place; // Default icon
+  }
+
+  String get _category => widget.trip is Destination 
+      ? (widget.trip as Destination).category 
+      : (widget.trip as Trip).category;
 
   String get _title => widget.trip is Destination 
       ? (widget.trip as Destination).title 
@@ -57,32 +114,94 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       ? (widget.trip as Destination).highlights 
       : (widget.trip as Trip).highlights;
   
-  List<String> get _amenities => widget.trip is Destination 
-      ? (widget.trip as Destination).amenities 
-      : (widget.trip as Trip).amenities;
-  
-  double get _price => widget.trip is Destination 
-      ? (widget.trip as Destination).price 
-      : (widget.trip as Trip).price;
+  List<String> get _amenities {
+    // Use API data if available, otherwise use model data
+    if (_apiDestinationDetails != null && _apiDestinationDetails!['amenities'] != null) {
+      final apiAmenities = _apiDestinationDetails!['amenities'];
+      if (apiAmenities is List) {
+        return apiAmenities.map((e) => e.toString()).toList();
+      }
+    }
+    return widget.trip is Destination 
+        ? (widget.trip as Destination).amenities 
+        : (widget.trip as Trip).amenities;
+  }
+
+  String get _finalDescription {
+    // Use API data if available
+    if (_apiDestinationDetails != null && _apiDestinationDetails!['description'] != null) {
+      return _apiDestinationDetails!['description'].toString();
+    }
+    return _description;
+  }
+
+  List<String> get _finalHighlights {
+    // Use API data if available
+    if (_apiDestinationDetails != null && _apiDestinationDetails!['highlights'] != null) {
+      final apiHighlights = _apiDestinationDetails!['highlights'];
+      if (apiHighlights is List) {
+        return apiHighlights.map((e) => e.toString()).toList();
+      }
+    }
+    return _highlights;
+  }
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final primaryColor = themeProvider.primaryColor;
+    final backgroundColor = themeProvider.backgroundColor;
+    final textColor = themeProvider.textColor;
+    final surfaceColor = themeProvider.surfaceColor;
+    
     return Scaffold(
+      backgroundColor: backgroundColor,
       body: CustomScrollView(
         slivers: [
-          // App Bar with Image
+          // App Bar with Image or Category Icon
           SliverAppBar(
             expandedHeight: 300,
             floating: false,
             pinned: true,
+            backgroundColor: surfaceColor,
             flexibleSpace: FlexibleSpaceBar(
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.network(
-                    _image,
-                    fit: BoxFit.cover,
-                  ),
+                  // Try to load image, fallback to category icon
+                  _imageLoadError
+                      ? Container(
+                          color: surfaceColor,
+                          child: Center(
+                            child: Icon(
+                              _getCategoryIcon(_category),
+                              size: 120,
+                              color: primaryColor.withOpacity(0.5),
+                            ),
+                          ),
+                        )
+                      : Image.network(
+                          _image,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            // On error, show category icon
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (mounted && !_imageLoadError) {
+                                setState(() => _imageLoadError = true);
+                              }
+                            });
+                            return Container(
+                              color: surfaceColor,
+                              child: Center(
+                                child: Icon(
+                                  _getCategoryIcon(_category),
+                                  size: 120,
+                                  color: primaryColor.withOpacity(0.5),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -102,11 +221,11 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
               Container(
                 margin: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: surfaceColor,
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.shadow,
+                      color: Colors.black.withOpacity(0.2),
                       blurRadius: 8,
                     ),
                   ],
@@ -114,7 +233,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                 child: IconButton(
                   icon: Icon(
                     _isSaved ? Icons.favorite : Icons.favorite_border,
-                    color: _isSaved ? AppColors.accent : AppColors.textSecondary,
+                    color: _isSaved ? primaryColor : textColor,
                   ),
                   onPressed: () {
                     setState(() {
@@ -143,22 +262,26 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                           children: [
                             Text(
                               _title,
-                              style: Theme.of(context).textTheme.displayMedium,
+                              style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                                color: textColor,
+                              ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: AppSpacing.sm),
                             Row(
                               children: [
-                                const Icon(
+                                Icon(
                                   Icons.location_on,
                                   size: 16,
-                                  color: AppColors.textSecondary,
+                                  color: primaryColor,
                                 ),
                                 const SizedBox(width: AppSpacing.xs),
                                 Text(
                                   _location,
-                                  style: Theme.of(context).textTheme.bodyMedium,
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: textColor,
+                                  ),
                                 ),
                               ],
                             ),
@@ -173,22 +296,22 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                               vertical: AppSpacing.sm,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.accentLight.withOpacity(0.2),
+                              color: primaryColor.withOpacity(0.15),
                               borderRadius: BorderRadius.circular(AppRadius.md),
                             ),
                             child: Row(
                               children: [
-                                const Icon(
+                                Icon(
                                   Icons.star,
                                   size: 16,
-                                  color: AppColors.accentLight,
+                                  color: primaryColor,
                                 ),
                                 const SizedBox(width: AppSpacing.xs),
                                 Text(
                                   '$_rating',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: AppColors.accentLight,
+                                    color: primaryColor,
                                   ),
                                 ),
                               ],
@@ -197,7 +320,9 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                           const SizedBox(height: AppSpacing.xs),
                           Text(
                             '$_reviews reviews',
-                            style: Theme.of(context).textTheme.bodySmall,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: textColor.withOpacity(0.7),
+                            ),
                           ),
                         ],
                       ),
@@ -231,57 +356,85 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                   // Tab Content
                   if (_selectedTabIndex == 0) ...[
                     Text(
-                      'About This Trip',
-                      style: Theme.of(context).textTheme.headlineSmall,
+                      'About This Destination',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        color: textColor,
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    Text(
-                      _description,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
+                    _isLoadingDetails 
+                        ? Center(child: CircularProgressIndicator(color: primaryColor))
+                        : Text(
+                            _finalDescription,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: textColor,
+                            ),
+                          ),
                   ] else if (_selectedTabIndex == 1) ...[
                     Text(
                       'Highlights',
-                      style: Theme.of(context).textTheme.headlineSmall,
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        color: textColor,
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    Column(
-                      children: _highlights.map((highlight) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.check_circle,
-                                color: AppColors.success,
-                                size: 20,
-                              ),
-                              const SizedBox(width: AppSpacing.md),
-                              Text(
-                                highlight,
-                                style: Theme.of(context).textTheme.bodyMedium,
-                              ),
-                            ],
+                    _isLoadingDetails
+                        ? Center(child: CircularProgressIndicator(color: primaryColor))
+                        : Column(
+                            children: _finalHighlights.map((highlight) {
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Icon(
+                                      Icons.check_circle,
+                                      color: primaryColor,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: AppSpacing.md),
+                                    Expanded(
+                                      child: Text(
+                                        highlight,
+                                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                          color: textColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
                           ),
-                        );
-                      }).toList(),
-                    ),
                   ] else if (_selectedTabIndex == 2) ...[
                     Text(
                       'What\'s Included',
-                      style: Theme.of(context).textTheme.headlineSmall,
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        color: textColor,
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    Wrap(
-                      spacing: AppSpacing.md,
-                      runSpacing: AppSpacing.md,
-                      children: _amenities.map((amenity) {
-                        return Chip(
-                          label: Text(amenity),
-                          backgroundColor: AppColors.surfaceAlt,
-                        );
-                      }).toList(),
-                    ),
+                    _isLoadingDetails
+                        ? Center(child: CircularProgressIndicator(color: primaryColor))
+                        : Wrap(
+                            spacing: AppSpacing.md,
+                            runSpacing: AppSpacing.md,
+                            children: _amenities.map((amenity) {
+                              return Chip(
+                                label: Text(
+                                  amenity,
+                                  style: TextStyle(
+                                    color: textColor,
+                                  ),
+                                ),
+                                backgroundColor: surfaceColor,
+                                side: BorderSide(
+                                  color: primaryColor.withOpacity(0.3),
+                                  width: 1,
+                                ),
+                              );
+                            }).toList(),
+                          ),
                   ],
                   const SizedBox(height: AppSpacing.xl),
                 ],
@@ -290,59 +443,15 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.shadow,
-              blurRadius: 12,
-            ),
-          ],
-        ),
-        child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Price per person',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        '\$$_price',
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  CustomButton(
-                    label: 'Book Now',
-                    width: 150,
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Proceeding to booking...')),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
   Widget _buildInfoCard(String label, IconData icon) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final primaryColor = themeProvider.primaryColor;
+    final surfaceColor = themeProvider.surfaceColor;
+    final textColor = themeProvider.textColor;
+    
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(
@@ -350,16 +459,22 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
           vertical: AppSpacing.md,
         ),
         decoration: BoxDecoration(
-          color: AppColors.surfaceAlt,
+          color: surfaceColor,
           borderRadius: BorderRadius.circular(AppRadius.lg),
+          border: Border.all(
+            color: primaryColor.withOpacity(0.2),
+            width: 1,
+          ),
         ),
         child: Column(
           children: [
-            Icon(icon, color: AppColors.primary),
+            Icon(icon, color: primaryColor),
             const SizedBox(height: AppSpacing.xs),
             Text(
               label,
-              style: Theme.of(context).textTheme.titleSmall,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: textColor,
+              ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -369,7 +484,13 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   }
 
   Widget _buildTab(String label, int index) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final primaryColor = themeProvider.primaryColor;
+    final surfaceColor = themeProvider.surfaceColor;
+    final textColor = themeProvider.textColor;
+    final isDarkMode = themeProvider.isDarkMode;
     final isSelected = _selectedTabIndex == index;
+    
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -382,13 +503,21 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
           vertical: AppSpacing.sm,
         ),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : AppColors.surfaceAlt,
+          color: isSelected ? primaryColor : surfaceColor,
           borderRadius: BorderRadius.circular(AppRadius.lg),
+          border: isSelected 
+              ? null 
+              : Border.all(
+                  color: primaryColor.withOpacity(0.3),
+                  width: 1,
+                ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? Colors.white : AppColors.textPrimary,
+            color: isSelected 
+                ? (isDarkMode ? Colors.black : Colors.white)
+                : textColor,
             fontWeight: FontWeight.w600,
           ),
         ),

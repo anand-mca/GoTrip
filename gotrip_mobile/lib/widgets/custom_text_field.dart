@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../utils/app_constants.dart';
+import '../providers/theme_provider.dart';
 
 class CustomTextField extends StatefulWidget {
   final String label;
@@ -38,12 +40,16 @@ class _CustomTextFieldState extends State<CustomTextField> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final textColor = themeProvider.textColor;
+    final primaryColor = themeProvider.primaryColor;
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           widget.label,
-          style: Theme.of(context).textTheme.titleSmall,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(color: textColor),
         ),
         const SizedBox(height: AppSpacing.sm),
         TextFormField(
@@ -52,10 +58,12 @@ class _CustomTextFieldState extends State<CustomTextField> {
           obscureText: _obscureText,
           validator: widget.validator,
           onChanged: widget.onChanged,
+          style: TextStyle(color: textColor),
           decoration: InputDecoration(
             hintText: widget.hint,
+            hintStyle: TextStyle(color: textColor.withOpacity(0.5)),
             prefixIcon: widget.prefixIcon != null
-                ? Icon(widget.prefixIcon)
+                ? Icon(widget.prefixIcon, color: textColor.withOpacity(0.6))
                 : null,
             suffixIcon: widget.isPassword
                 ? GestureDetector(
@@ -68,10 +76,26 @@ class _CustomTextFieldState extends State<CustomTextField> {
                 _obscureText
                     ? Icons.visibility_off
                     : Icons.visibility,
-                color: AppColors.textSecondary,
+                color: textColor.withOpacity(0.6),
               ),
             )
                 : null,
+            enabledBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: textColor.withOpacity(0.3)),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: primaryColor, width: 2),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: Colors.red.withOpacity(0.6)),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: Colors.red, width: 2),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
           ),
         ),
       ],

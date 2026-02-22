@@ -5,6 +5,7 @@ import '../utils/app_constants.dart';
 import '../widgets/trip_card.dart';
 import '../models/destination_model.dart';
 import '../providers/destination_provider.dart';
+import '../providers/theme_provider.dart';
 import '../services/journey_service.dart';
 import 'journey_tracking_screen.dart';
 import 'travel_history_screen.dart';
@@ -94,6 +95,10 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final primaryColor = themeProvider.primaryColor;
+    final textOnPrimary = themeProvider.textOnPrimaryColor;
+    
     return Scaffold(
       body: SingleChildScrollView(
         child: Column(
@@ -101,12 +106,8 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
             // Header
             Container(
               padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.xl, AppSpacing.lg, AppSpacing.lg),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AppColors.primary, AppColors.primaryDark],
-                ),
+              decoration: BoxDecoration(
+                color: primaryColor,
               ),
               child: SafeArea(
                 bottom: false,
@@ -119,12 +120,12 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'Hello, Traveler!',
                               style: TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                                color: textOnPrimary,
                               ),
                             ),
                             const SizedBox(height: AppSpacing.xs),
@@ -132,7 +133,7 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                               'Ready for your next adventure?',
                               style: TextStyle(
                                 fontSize: 14,
-                                color: Colors.white.withOpacity(0.8),
+                                color: textOnPrimary.withOpacity(0.8),
                               ),
                             ),
                           ],
@@ -156,9 +157,9 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                                   color: Colors.white.withOpacity(0.2),
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(
+                              child: Icon(
                                   Icons.history,
-                                  color: Colors.white,
+                                  color: textOnPrimary,
                                   size: 24,
                                 ),
                               ),
@@ -176,12 +177,12 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                               child: Container(
                                 padding: const EdgeInsets.all(AppSpacing.sm),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
+                                  color: textOnPrimary.withOpacity(0.2),
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(
+                                child: Icon(
                                   Icons.person,
-                                  color: Colors.white,
+                                  color: textOnPrimary,
                                   size: 24,
                                 ),
                               ),
@@ -215,7 +216,7 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                       ),
                       TextButton(
                         onPressed: () => Navigator.pushNamed(context, '/explore'),
-                        child: const Text('See All'),
+                        child: Text('See All', style: TextStyle(color: primaryColor)),
                       ),
                     ],
                   ),

@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/app_constants.dart';
 import '../models/destination_model.dart';
 import '../providers/destination_provider.dart';
+import '../providers/theme_provider.dart';
 import '../widgets/trip_card.dart';
 
 class ExploreScreen extends StatefulWidget {
@@ -65,16 +66,25 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final primaryColor = themeProvider.primaryColor;
+    final textOnPrimary = themeProvider.textOnPrimaryColor;
+    final backgroundColor = themeProvider.backgroundColor;
+    final textColor = themeProvider.textColor;
+    
     return Scaffold(
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: const Text('Explore Trips'),
+        title: Text('Explore Trips', style: TextStyle(color: textOnPrimary, fontWeight: FontWeight.bold)),
         elevation: 0,
+        backgroundColor: primaryColor,
+        foregroundColor: textOnPrimary,
       ),
       body: Consumer<DestinationProvider>(
         builder: (context, provider, _) {
           if (provider.isLoading) {
-            return const Center(
-              child: CircularProgressIndicator(),
+            return Center(
+              child: CircularProgressIndicator(color: primaryColor),
             );
           }
 
@@ -85,12 +95,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
               // Search Section
               Container(
                 padding: const EdgeInsets.all(AppSpacing.lg),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [AppColors.primary, AppColors.primaryDark],
-                  ),
+                decoration: BoxDecoration(
+                  color: primaryColor,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -103,18 +109,19 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       },
                       decoration: InputDecoration(
                         hintText: 'Search destination...',
-                        prefixIcon: const Icon(Icons.search),
+                        hintStyle: TextStyle(color: textColor.withOpacity(0.5)),
+                        prefixIcon: Icon(Icons.search, color: textColor.withOpacity(0.5)),
                         suffixIcon: _searchController.text.isNotEmpty
                             ? GestureDetector(
                           onTap: () {
                             _searchController.clear();
                             setState(() {});
                           },
-                          child: const Icon(Icons.clear),
+                          child: Icon(Icons.clear, color: textColor.withOpacity(0.5)),
                         )
                             : null,
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: backgroundColor,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(AppRadius.lg),
                           borderSide: BorderSide.none,
@@ -144,10 +151,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
                             _selectedCategory = category;
                           });
                         },
-                        backgroundColor: AppColors.surfaceAlt,
-                        selectedColor: AppColors.primary,
+                        backgroundColor: themeProvider.surfaceColor,
+                        selectedColor: primaryColor,
                         labelStyle: TextStyle(
-                          color: isSelected ? Colors.white : AppColors.textPrimary,
+                          color: isSelected ? textOnPrimary : textColor,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -162,21 +169,21 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.explore,
                         size: 64,
-                        color: AppColors.border,
+                        color: textColor.withOpacity(0.3),
                       ),
                       const SizedBox(height: AppSpacing.lg),
                       Text(
                         'No trips found',
-                        style: Theme.of(context).textTheme.headlineSmall,
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: textColor),
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       Text(
                         'Try adjusting your search',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.textSecondary,
+                          color: textColor.withOpacity(0.6),
                         ),
                       ),
                     ],

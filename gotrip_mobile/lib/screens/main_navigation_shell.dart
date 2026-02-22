@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../services/journey_service.dart';
+import '../providers/theme_provider.dart';
 import 'home_screen.dart';
 import 'explore_screen.dart';
 import 'trip_planning_screen.dart';
@@ -90,47 +92,53 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   }
 
   void _showNoActiveTripDialog() {
+    final themeProvider = context.read<ThemeProvider>();
+    final primaryColor = themeProvider.primaryColor;
+    final textColor = themeProvider.textColor;
+    final surfaceColor = themeProvider.surfaceColor;
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: surfaceColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.blue.shade50,
+                color: primaryColor.withOpacity(0.2),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.map_outlined, color: Colors.blue.shade600),
+              child: Icon(Icons.map_outlined, color: primaryColor),
             ),
             const SizedBox(width: 12),
-            const Text('No Active Journey'),
+            Text('No Active Journey', style: TextStyle(color: textColor)),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               "You don't have an active journey yet!",
-              style: TextStyle(fontSize: 16),
+              style: TextStyle(fontSize: 16, color: textColor),
             ),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.grey.shade100,
+                color: textColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.lightbulb_outline, color: Colors.orange.shade600),
+                  Icon(Icons.lightbulb_outline, color: Colors.orange),
                   const SizedBox(width: 8),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Plan a trip and tap "Start Journey" to begin tracking!',
-                      style: TextStyle(fontSize: 13),
+                      style: TextStyle(fontSize: 13, color: textColor),
                     ),
                   ),
                 ],
@@ -141,7 +149,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            child: Text('Close', style: TextStyle(color: textColor.withOpacity(0.6))),
           ),
           ElevatedButton.icon(
             onPressed: () {
@@ -152,7 +160,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             icon: const Icon(Icons.add, size: 18),
             label: const Text('Plan a Trip'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
+              backgroundColor: primaryColor,
               foregroundColor: Colors.white,
             ),
           ),
@@ -244,7 +252,15 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final primaryColor = themeProvider.primaryColor;
+    final textOnPrimary = themeProvider.textOnPrimaryColor;
+    final backgroundColor = themeProvider.backgroundColor;
+    final textColor = themeProvider.textColor;
+    final surfaceColor = themeProvider.surfaceColor;
+    
     return Scaffold(
+      backgroundColor: backgroundColor,
       body: PageView(
         controller: _pageController,
         physics: const NeverScrollableScrollPhysics(),
@@ -262,7 +278,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: surfaceColor,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.1),
@@ -277,11 +293,11 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildNavItem(0, Icons.home_outlined, Icons.home, 'Home'),
-                _buildNavItem(1, Icons.explore_outlined, Icons.explore, 'Explore'),
-                _buildNavItem(2, Icons.map_outlined, Icons.map, 'Plan Trip'),
-                _buildJourneyNavItem(),
-                _buildNavItem(4, Icons.smart_toy_outlined, Icons.smart_toy, 'GoBuddy'),
+                _buildNavItem(0, Icons.home_outlined, Icons.home, 'Home', primaryColor, textColor),
+                _buildNavItem(1, Icons.explore_outlined, Icons.explore, 'Explore', primaryColor, textColor),
+                _buildNavItem(2, Icons.map_outlined, Icons.map, 'Plan Trip', primaryColor, textColor),
+                _buildJourneyNavItem(primaryColor, textColor),
+                _buildNavItem(4, Icons.smart_toy_outlined, Icons.smart_toy, 'GoBuddy', primaryColor, textColor),
               ],
             ),
           ),
@@ -290,7 +306,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     );
   }
 
-  Widget _buildNavItem(int index, IconData icon, IconData activeIcon, String label) {
+  Widget _buildNavItem(int index, IconData icon, IconData activeIcon, String label, Color primaryColor, Color textColor) {
     final isSelected = _currentIndex == index;
     
     return GestureDetector(
@@ -303,7 +319,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
           vertical: 8,
         ),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.blue.shade50 : Colors.transparent,
+          color: isSelected ? primaryColor.withOpacity(0.15) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -311,7 +327,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
           children: [
             Icon(
               isSelected ? activeIcon : icon,
-              color: isSelected ? Colors.blue.shade600 : Colors.grey.shade600,
+              color: isSelected ? primaryColor : textColor.withOpacity(0.6),
               size: 24,
             ),
             if (isSelected) ...[
@@ -319,7 +335,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
               Text(
                 label,
                 style: TextStyle(
-                  color: Colors.blue.shade600,
+                  color: primaryColor,
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
                 ),
@@ -331,7 +347,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     );
   }
 
-  Widget _buildJourneyNavItem() {
+  Widget _buildJourneyNavItem(Color primaryColor, Color textColor) {
     final hasActiveTrip = _activeTrip != null;
     final isSelected = _currentIndex == 3;
     
@@ -346,8 +362,8 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         ),
         decoration: BoxDecoration(
           color: hasActiveTrip 
-              ? Colors.green.shade50 
-              : (isSelected ? Colors.blue.shade50 : Colors.transparent),
+              ? Colors.green.withOpacity(0.15) 
+              : (isSelected ? primaryColor.withOpacity(0.15) : Colors.transparent),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -358,8 +374,8 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                 Icon(
                   hasActiveTrip ? Icons.directions_walk : Icons.directions_walk_outlined,
                   color: hasActiveTrip 
-                      ? Colors.green.shade600 
-                      : (isSelected ? Colors.blue.shade600 : Colors.grey.shade600),
+                      ? Colors.green 
+                      : (isSelected ? primaryColor : textColor.withOpacity(0.6)),
                   size: 24,
                 ),
                 if (hasActiveTrip)
@@ -384,8 +400,8 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                 'Journey',
                 style: TextStyle(
                   color: hasActiveTrip 
-                      ? Colors.green.shade600 
-                      : Colors.blue.shade600,
+                      ? Colors.green 
+                      : primaryColor,
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
                 ),
