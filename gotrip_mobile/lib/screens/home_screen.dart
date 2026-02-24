@@ -212,7 +212,10 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                     children: [
                       Text(
                         'Featured Trips',
-                        style: Theme.of(context).textTheme.displaySmall,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       TextButton(
                         onPressed: () => Navigator.pushNamed(context, '/explore'),
@@ -306,7 +309,10 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                 children: [
                   Text(
                     'Popular Destinations',
-                    style: Theme.of(context).textTheme.displaySmall,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.md),
                   Consumer<DestinationProvider>(
@@ -369,6 +375,10 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
   }
 
   Widget _buildActiveJourneyBanner() {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDark = themeProvider.isDarkMode;
+    final primaryColor = themeProvider.primaryColor;
+
     final tripName = widget.activeTrip!['trip_name'] ?? 'Your Trip';
     final startCity = widget.activeTrip!['start_city'] ?? 'Unknown';
     
@@ -385,18 +395,23 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
     
     final progress = totalDestinations > 0 ? visitedDestinations / totalDestinations : 0.0;
 
+    // Theme-aware colours
+    final cardBg = isDark ? const Color(0xFF1A1A1A) : Colors.white;
+    final borderColor = primaryColor;
+    final textMain = primaryColor;
+    final textSub = isDark ? Colors.white70 : const Color(0xFF2D3436).withOpacity(0.75);
+    final iconBg = primaryColor.withOpacity(0.15);
+    final progressBg = primaryColor.withOpacity(0.2);
+
     return Container(
       margin: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.green.shade400, Colors.teal.shade500],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: cardBg,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor, width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.green.withOpacity(0.3),
+            color: primaryColor.withOpacity(0.18),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -417,12 +432,13 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: iconBg,
                         borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: borderColor.withOpacity(0.4), width: 1),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.directions_walk,
-                        color: Colors.white,
+                        color: textMain,
                         size: 24,
                       ),
                     ),
@@ -431,10 +447,10 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             '🚀 Active Journey',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: textMain,
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
                             ),
@@ -442,8 +458,8 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                           const SizedBox(height: 2),
                           Text(
                             tripName,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: isDark ? Colors.white : const Color(0xFF2D3436),
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
@@ -453,9 +469,9 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                         ],
                       ),
                     ),
-                    const Icon(
+                    Icon(
                       Icons.arrow_forward_ios,
-                      color: Colors.white,
+                      color: textMain,
                       size: 18,
                     ),
                   ],
@@ -470,16 +486,16 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                         child: LinearProgressIndicator(
                           value: progress,
                           minHeight: 8,
-                          backgroundColor: Colors.white.withOpacity(0.3),
-                          valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                          backgroundColor: progressBg,
+                          valueColor: AlwaysStoppedAnimation<Color>(textMain),
                         ),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Text(
                       '${(progress * 100).toInt()}%',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: textMain,
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
                       ),
@@ -490,7 +506,7 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                 Text(
                   '$visitedDestinations of $totalDestinations destinations visited',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
+                    color: textSub,
                     fontSize: 12,
                   ),
                 ),

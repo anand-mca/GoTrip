@@ -393,6 +393,7 @@ out body center 15;
           estimatedPrice: estimatedPrice,
           address: tags['addr:street'] ?? tags['addr:full'] ?? '',
           phone: tags['phone'] ?? tags['contact:phone'],
+          website: tags['website'] ?? tags['contact:website'] ?? tags['url'],
         ));
       } catch (e) {
         continue;
@@ -719,6 +720,7 @@ class Hotel {
   final int? estimatedPrice;
   final String? address;
   final String? phone;
+  final String? website;
 
   Hotel({
     required this.name,
@@ -728,6 +730,7 @@ class Hotel {
     this.estimatedPrice,
     this.address,
     this.phone,
+    this.website,
   });
 
   String get distanceText {

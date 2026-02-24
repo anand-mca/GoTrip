@@ -6,8 +6,8 @@ class ThemeProvider extends ChangeNotifier {
   
   bool get isDarkMode => _isDarkMode;
   
-  // Light Mode Colors (Red and White)
-  static const Color lightPrimary = Color(0xFFE40000);      // Airtel Red
+  // Light Mode Colors (lavender and White)
+  static const Color lightPrimary = Color.fromARGB(255, 96, 93, 250);      // lavender
   static const Color lightBackground = Color(0xFFFFFFFF);   // White
   static const Color lightSurface = Color(0xFFFFFFFF);
   static const Color lightText = Color(0xFF2D3436);

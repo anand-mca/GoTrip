@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/journey_service.dart';
 import '../services/location_services.dart';
 import '../providers/theme_provider.dart';
@@ -964,73 +965,109 @@ class _JourneyTrackingScreenState extends State<JourneyTrackingScreen> {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: textColor.withOpacity(0.2)),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.purple.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Icon(
-                hotel.type == 'Hostel' ? Icons.business : 
-                hotel.type == 'Homestay' ? Icons.home : Icons.hotel,
-                color: Colors.purple,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    hotel.name,
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textColor),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(6),
                   ),
-                  const SizedBox(height: 2),
-                  Row(
+                  child: Icon(
+                    hotel.type == 'Hostel' ? Icons.business : 
+                    hotel.type == 'Homestay' ? Icons.home : Icons.hotel,
+                    color: Colors.purple,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.purple.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          hotel.type,
-                          style: TextStyle(fontSize: 9, color: Colors.purple, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
                       Text(
-                        hotel.distanceText,
-                        style: TextStyle(fontSize: 11, color: textColor.withOpacity(0.6)),
+                        hotel.name,
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textColor),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.purple.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              hotel.type,
+                              style: TextStyle(fontSize: 9, color: Colors.purple, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            hotel.distanceText,
+                            style: TextStyle(fontSize: 11, color: textColor.withOpacity(0.6)),
+                          ),
+                        ],
+                      ),
+                      if (hotel.starRating != null || hotel.estimatedPrice != null) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            if (hotel.starRating != null) ...[
+                              ...List.generate(hotel.starRating!, (i) => 
+                                Icon(Icons.star, color: Colors.amber, size: 12)),
+                              const SizedBox(width: 8),
+                            ],
+                            if (hotel.estimatedPrice != null)
+                              Text(
+                                '~${hotel.priceText}',
+                                style: TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.w500),
+                              ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
-                  if (hotel.starRating != null || hotel.estimatedPrice != null) ...[
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        if (hotel.starRating != null) ...[
-                          ...List.generate(hotel.starRating!, (i) => 
-                            Icon(Icons.star, color: Colors.amber, size: 12)),
-                          const SizedBox(width: 8),
-                        ],
-                        if (hotel.estimatedPrice != null)
-                          Text(
-                            '~${hotel.priceText}',
-                            style: TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.w500),
-                          ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
+                ),
+              ],
             ),
+            // Book Now button — only shown when a website is available from OpenStreetMap
+            if (hotel.website != null && hotel.website!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    final raw = hotel.website!.startsWith('http')
+                        ? hotel.website!
+                        : 'https://${hotel.website!}';
+                    final uri = Uri.tryParse(raw);
+                    if (uri != null && await canLaunchUrl(uri)) {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Could not open hotel website')),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.open_in_browser, size: 16),
+                  label: const Text('Book Now', style: TextStyle(fontSize: 13)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.purple,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       )).toList(),

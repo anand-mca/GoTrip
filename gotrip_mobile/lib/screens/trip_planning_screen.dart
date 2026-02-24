@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/trip_planner_service.dart';
 import '../services/journey_service.dart';
+import '../services/groq_service.dart';
 import '../providers/destination_provider.dart';
 import '../providers/theme_provider.dart';
 import '../models/destination_model.dart';
@@ -32,33 +33,7 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
   bool _isSearching = false;
   int? _searchingDayIndex;
   final _destinationSearchController = TextEditingController();
-
-  // City coordinates lookup
-  final Map<String, Map<String, dynamic>> _cityCoordinates = {
-    'Mumbai': {'lat': 19.0760, 'lng': 72.8777},
-    'Delhi': {'lat': 28.6139, 'lng': 77.2090},
-    'Bangalore': {'lat': 12.9716, 'lng': 77.5946},
-    'Bengaluru': {'lat': 12.9716, 'lng': 77.5946}, // Alternative spelling
-    'Kolkata': {'lat': 22.5726, 'lng': 88.3639},
-    'Chennai': {'lat': 13.0827, 'lng': 80.2707},
-    'Hyderabad': {'lat': 17.3850, 'lng': 78.4867},
-    'Pune': {'lat': 18.5204, 'lng': 73.8567},
-    'Ahmedabad': {'lat': 23.0225, 'lng': 72.5714},
-    'Jaipur': {'lat': 26.9124, 'lng': 75.7873},
-    'Goa': {'lat': 15.2993, 'lng': 74.1240},
-    'Munnar': {'lat': 10.0889, 'lng': 77.0595},
-    'Manali': {'lat': 32.2432, 'lng': 77.1892},
-    'Shimla': {'lat': 31.1048, 'lng': 77.1734},
-    'Rishikesh': {'lat': 30.0869, 'lng': 78.2676},
-    'Udaipur': {'lat': 24.5854, 'lng': 73.7125},
-    'Kochi': {'lat': 9.9312, 'lng': 76.2673},
-    'Cochin': {'lat': 9.9312, 'lng': 76.2673}, // Alternative spelling
-    'Agra': {'lat': 27.1767, 'lng': 78.0081},
-    'Varanasi': {'lat': 25.3176, 'lng': 82.9739},
-    'Pondicherry': {'lat': 11.9416, 'lng': 79.8083},
-    'Puducherry': {'lat': 11.9416, 'lng': 79.8083}, // Alternative spelling
-    'Darjeeling': {'lat': 27.0360, 'lng': 88.2627},
-  };
+  bool _isGeocodingCity = false;
 
   final List<String> categories = [
     'beach',
@@ -154,32 +129,34 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
         throw Exception('End date must be after start date');
       }
 
-      // Get city name from input (no defaults to hardcoded coordinates)
+      // Get city name from input
       final cityName = _startLocationController.text.trim();
 
       if (cityName.isEmpty) {
         throw Exception(
-            'Please enter a city name (e.g., "Goa", "Mumbai", "Delhi")');
+            'Please enter a city name (e.g., "Goa", "Mumbai", "Delhi", "Coorg")');
       }
 
-      // Call TripPlannerService with Supabase
       print('Planning trip for city: $cityName');
       print('Preferences: $selectedPreferences');
       print('Budget: $budget');
       print('Duration: $duration days');
 
-      // Get city coordinates (case-insensitive)
-      final normalizedCityName = cityName.trim();
-      final coordinates = _cityCoordinates[normalizedCityName] ??
-          _cityCoordinates[_cityCoordinates.keys.firstWhere(
-            (key) => key.toLowerCase() == normalizedCityName.toLowerCase(),
-            orElse: () => '',
-          )];
+      // Geocode city using Groq AI — works for ANY Indian city
+      setState(() { _isGeocodingCity = true; });
+      final coordsRaw = await GroqService.getCityCoordinates(cityName);
+      setState(() { _isGeocodingCity = false; });
 
-      if (coordinates == null) {
+      if (coordsRaw == null) {
         throw Exception(
-            'City "$normalizedCityName" not found. Try: Mumbai, Delhi, Bangalore, Goa, etc.');
+            'Could not find coordinates for "$cityName". Please check the city name and try again.');
       }
+
+      final coordinates = <String, dynamic>{
+        'lat': coordsRaw['lat'],
+        'lng': coordsRaw['lng'],
+      };
+      final normalizedCityName = cityName;
 
       final tripPlannerService = TripPlannerService();
       final response = await tripPlannerService.planTrip(
@@ -247,6 +224,7 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
     } finally {
       setState(() {
         isLoading = false;
+        _isGeocodingCity = false;
       });
     }
   }
@@ -510,16 +488,28 @@ class _TripPlanningScreenState extends State<TripPlanningScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: isLoading ? null : _planTrip,
+                  onPressed: (isLoading || _isGeocodingCity) ? null : _planTrip,
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  child: isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white))
+                  child: (isLoading || _isGeocodingCity)
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white)),
+                            const SizedBox(width: 12),
+                            Text(
+                              _isGeocodingCity
+                                  ? 'Finding city coordinates...'
+                                  : 'Planning your trip...',
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          ],
+                        )
                       : const Text('Plan My Trip 🗺️',
                           style: TextStyle(fontSize: 16)),
                 ),

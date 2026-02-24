@@ -272,7 +272,7 @@ class _GoBuddyScreenState extends State<GoBuddyScreen> with AutomaticKeepAliveCl
         return;
       }
       
-      if (result.isConfident(threshold: 0.5)) {
+      if (result.isConfident(threshold: 0.9)) {
         // Confident prediction - show initial message and generate description
         final destination = result.topPredictions[0].displayLabel;
         final confidence = result.topPredictions[0].confidencePercent;
