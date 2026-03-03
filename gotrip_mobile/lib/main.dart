@@ -22,10 +22,14 @@ import 'providers/trip_provider.dart';
 import 'providers/destination_provider.dart';
 import 'providers/destination_api_provider.dart';
 import 'providers/theme_provider.dart';
+import 'screens/splash_screen.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  
+  final binding = WidgetsFlutterBinding.ensureInitialized();
+  // Keep native splash visible until Flutter is ready to paint
+  FlutterNativeSplash.preserve(widgetsBinding: binding);
+
   // Initialize Supabase
   try {
     await Supabase.initialize(
@@ -36,13 +40,16 @@ void main() async {
     print('Supabase initialization error: $e');
     print('Make sure to add your Supabase credentials in lib/config/supabase_config.dart');
   }
-  
+
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.dark,
     ),
   );
+
+  // Remove native splash — Flutter SplashScreen takes over immediately
+  FlutterNativeSplash.remove();
   runApp(const GoTripApp());
 }
 
@@ -70,9 +77,7 @@ class _GoTripAppState extends State<GoTripApp> {
             title: 'GoTrip',
             theme: themeProvider.themeData,
             debugShowCheckedModeBanner: false,
-            home: SupabaseService().getCurrentUser() != null 
-                ? const MainNavigationShell() 
-                : const LoginScreen(),
+            home: const SplashScreen(),
             routes: {
               '/login': (context) => const LoginScreen(),
               '/signup': (context) => const SignupScreen(),

@@ -8,7 +8,7 @@
 
     <application
         android:label="GoTrip"
-        android:icon="@drawable/ic_launcher"
+        android:icon="@mipmap/launcher_icon"
         android:usesCleartextTraffic="true"
         android:largeHeap="true">
 
